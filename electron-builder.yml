@@ -1,0 +1,39 @@
+appId: com.aaravmaloo.apm
+productName: APM
+copyright: Copyright 2026 aaravmaloo
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - electron/**/*
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: bin
+    to: bin
+    filter:
+      - pm
+      - pm.exe
+
+npmRebuild: false
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dir
+  icon: build/icon.icns
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+win:
+  target:
+    - dir
+
+linux:
+  target:
+    - dir
+  category: Utility
