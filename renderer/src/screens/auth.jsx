@@ -407,6 +407,23 @@ export function Setup({ onCancel }) {
 
 let autoTouchTried = false;
 
+const touchApi = () => (window.apm && window.apm.touchId) || null;
+
+// Whether this Mac runs Touch ID inline on the lock screen: the app embeds
+// macOS's Touch ID glyph in the button and no system dialog appears. null
+// until the app answers.
+function useTouchInline() {
+  const [inline, setInline] = React.useState(touchApi() ? null : false);
+  React.useEffect(() => {
+    const t = touchApi();
+    if (!t) return;
+    let live = true;
+    t.info().then((r) => { if (live) setInline(!!(r && r.inline)); }, () => { if (live) setInline(false); });
+    return () => { live = false; };
+  }, []);
+  return inline;
+}
+
 export function Lock({ onRecover, onWelcome, theme, onTheme }) {
   const session = useStore((s) => s.session);
   useStore((s) => s.status);
@@ -418,38 +435,89 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
   const [wait, setWait] = React.useState(0);
   const [menu, setMenu] = React.useState(false);
   const [ro, setRo] = React.useState(false);
+  const inline = useTouchInline();
+  const [glyph, setGlyph] = React.useState(false);
+  const touchBtn = React.useRef(null);
+  const phaseRef = React.useRef(phase);
+  phaseRef.current = phase;
+  const roRef = React.useRef(ro);
+  roRef.current = ro;
+  // After a fingerprint is rejected or Touch ID locks out, stop re-arming on
+  // focus until the button is pressed.
+  const touchHeld = React.useRef(false);
+  const dark = theme === "dark";
   const P = info.profile || { kdf: "Argon2id", memory: 64, cipher: "AES-256-GCM", time: 3, threads: 2 };
   React.useEffect(() => {
     if (wait <= 0) return;
     const t = setTimeout(() => { setWait(wait - 1); if (wait - 1 <= 0) setError(null); }, 1000);
     return () => clearTimeout(t);
   }, [wait]);
-  const finish = () => { setPhase("open"); setTimeout(() => act.enter({ readonly: ro ? 15 : 0 }), 640); };
+  const finish = () => { setPhase("open"); setTimeout(() => act.enter({ readonly: roRef.current ? 15 : 0 }), 640); };
   const submit = async (v) => {
-    if (phase !== "idle" || wait > 0) return;
+    if ((phase !== "idle" && phase !== "touch") || wait > 0) return;
     if (!v) { setShake(Date.now()); return; }
+    if (phase === "touch" && touchApi()) touchApi().cancel();
     setPhase("deriving"); setError(null);
     const r = await act.unlock(v);
     if (r.ok) { finish(); return; }
     setPhase("idle"); setPw(""); setShake(Date.now());
+    if (inline && r.error !== "cooldown" && r.error !== "breach" && !touchHeld.current) setTimeout(() => touch(true), 100);
     if (r.error === "cooldown") { setWait(r.wait); setError("Too many attempts. Try again in " + r.wait + " seconds."); }
     else if (r.error === "wrong") setError(r.left != null ? "Incorrect password. " + r.left + " attempt" + (r.left === 1 ? "" : "s") + " left before a wait." : "Incorrect password.");
     else setError(r.message || "Could not unlock the vault.");
   };
   const touch = async (auto) => {
-    if (!info.touchId || phase !== "idle") return;
-    setPhase("touch"); setError(null);
+    if (!info.touchId || phaseRef.current !== "idle") return;
+    if (!auto) { touchHeld.current = false; setError(null); }
+    setPhase("touch");
+    const started = Date.now();
     const r = await act.touchId();
     if (r.ok) { finish(); return; }
-    setPhase("idle");
-    if (auto && r.code === "touchid_failed") return;
-    setError(r.code === "touchid_failed" ? "Touch ID was cancelled. Enter your master password." : r.message);
+    setPhase((p) => (p === "touch" ? "idle" : p));
+    if (r.code === "touchid_cancelled") {
+      // Focus can come back before pm reports the cancel, so re-arm here. A
+      // cancel that comes straight back means the app refused to arm; leave it.
+      if (inline && Date.now() - started > 500) setTimeout(() => { if (document.hasFocus() && !touchHeld.current) touch(true); }, 100);
+      return;
+    }
+    if (inline) touchHeld.current = true;
+    else if (auto && r.code === "touchid_failed") return;
+    setError(r.code === "touchid_failed" ? (inline ? "Touch ID did not recognise that fingerprint. Enter your master password." : "Touch ID was cancelled. Enter your master password.") : r.message);
   };
+  // Inline Touch ID tells the app where the glyph goes: over the button's
+  // fingerprint icon, followed every frame so it tracks layout changes.
   React.useEffect(() => {
-    if (autoTouchTried || !info.touchId || session.lockedAt) return;
-    autoTouchTried = true;
-    touch(true);
-  }, []);
+    const t = touchApi();
+    if (!t || !inline || !info.touchId) return;
+    let raf = 0;
+    let last = "";
+    const track = () => {
+      const icon = touchBtn.current && touchBtn.current.querySelector(".apm-icon");
+      const r = icon && icon.getBoundingClientRect();
+      const slot = r && r.width > 0 ? { x: r.left, y: r.top, width: r.width, height: r.height, dark } : null;
+      const key = JSON.stringify(slot);
+      if (key !== last) { last = key; t.slot(slot); }
+      raf = requestAnimationFrame(track);
+    };
+    track();
+    return () => { cancelAnimationFrame(raf); t.slot(null); };
+  }, [inline, info.touchId, dark]);
+  React.useEffect(() => (window.apm && window.apm.on ? window.apm.on("touchid.inline", (d) => setGlyph(!!(d && d.on))) : undefined), []);
+  // Like the macOS lock screen, inline Touch ID is armed whenever this window
+  // has focus. Without it, the system dialog is offered once per launch.
+  React.useEffect(() => {
+    if (inline === null || !info.touchId) return;
+    if (!inline) {
+      if (autoTouchTried || session.lockedAt) return;
+      autoTouchTried = true;
+      touch(true);
+      return;
+    }
+    const arm = () => { if (document.hasFocus() && !touchHeld.current) touch(true); };
+    arm();
+    window.addEventListener("focus", arm);
+    return () => window.removeEventListener("focus", arm);
+  }, [inline, info.touchId]);
   const idle = session.lockedAt ? (session.lockReason === "idle" ? "Locked after a period of inactivity" : session.lockReason === "sleep" ? "Locked when your Mac went to sleep" : session.lockReason === "expired" ? "Locked when the session ended" : session.lockReason === "Locked from the browser" ? "Locked from the browser" : "Locked " + U.agoLong(session.lockedAt)) : "Locked";
   const unlockMs = P.memory >= 512 ? 1500 : P.memory >= 256 ? 1100 : 750;
   return (
@@ -469,7 +537,7 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
           <A.PasswordInput value={pw} onChange={(v) => { setPw(v); if (error && !wait) setError(null); }} onSubmit={submit} error={error} busy={phase === "deriving" || phase === "open" || wait > 0} autoFocus shakeKey={shake} />
           {info.touchId && <>
             <div className="lock-or">or</div>
-            <A.Button variant="secondary" size="lg" block icon="fingerprint" className={cx("lock-touch", phase === "touch" && "is-scanning")} onClick={() => touch(false)} disabled={phase === "deriving" || phase === "open" || wait > 0}>{phase === "touch" ? "Touch the sensor" : "Unlock with Touch ID"}</A.Button>
+            <A.Button ref={touchBtn} variant="secondary" size="lg" block icon="fingerprint" className={cx("lock-touch", phase === "touch" && "is-scanning", glyph && "has-glyph")} onClick={() => touch(false)} disabled={phase === "deriving" || phase === "open" || wait > 0}>{phase === "touch" ? "Touch the sensor" : "Unlock with Touch ID"}</A.Button>
           </>}
         </div>
         {phase === "deriving" || phase === "open" ? (

@@ -2,6 +2,7 @@
 
 /dist/
 /bin/
+/native/build/
 /release/
 *.dmg
 *.zip

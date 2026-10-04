@@ -156,8 +156,6 @@ a:hover{text-decoration:underline;text-underline-offset:2px}
 .linkbtn:hover,.linkish:hover{text-decoration:underline;text-underline-offset:2px}
 .linkish{color:var(--text);font-weight:500}
 
-.bullets{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:6px;color:var(--text-secondary);font-size:13px;line-height:19px}
-.bullets li::marker{color:var(--text-tertiary)}
 
 .howto{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:none}
 .howto li{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;align-items:start;font-size:13.5px;line-height:20px}

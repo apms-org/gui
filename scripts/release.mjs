@@ -33,6 +33,8 @@ const builderCli = path.join(root, "node_modules", "electron-builder", "cli.js")
 const platformFlag = process.platform === "darwin" ? "--mac" : process.platform === "win32" ? "--win" : "--linux";
 
 run(process.execPath, [path.join("scripts", "build-renderer.mjs")]);
+// Universal binary, so one build serves both arches.
+run(process.execPath, [path.join("scripts", "build-native.mjs")]);
 fs.rmSync(path.join(root, "release"), { recursive: true, force: true });
 
 for (const arch of arches) {

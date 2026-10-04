@@ -50,6 +50,11 @@
       }),
       menu: Object.freeze({
         setState: function (state) { native.menu.setState(state || {}); }
+      }),
+      touchId: Object.freeze({
+        info: function () { return unwrap(native.touchId.info()); },
+        slot: function (slot) { native.touchId.slot(slot || null); },
+        cancel: function () { native.touchId.cancel(); }
       })
     });
     return;

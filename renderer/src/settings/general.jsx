@@ -162,13 +162,6 @@ export function About() {
         <A.SettingRow title="Documentation"><A.Button size="sm" variant="ghost" iconRight="arrow-up-right" onClick={() => openUrl("https://aaravmaloo.github.io/apm")}>aaravmaloo.github.io/apm</A.Button></A.SettingRow>
         <A.SettingRow title="Keyboard shortcuts"><A.Button size="sm" icon="keyboard" kbd={["⌘", "/"]} onClick={() => ui.open("shortcuts")}>Show</A.Button></A.SettingRow>
       </Card>
-      <Card title="How the app works" description="The app is a window onto pm. Every change goes through the same Go code the CLI uses.">
-        <ul className="bullets">
-          <li>The app runs <span className="mono-inline">pm desktop</span> in the background and talks to it over a private pipe. Nothing listens on the network except the loopback bridge for the browser extension.</li>
-          <li>Your master password is held only in that process while the vault is unlocked, and dropped when it locks.</li>
-          <li>Unlocking here also unlocks pm in your terminal for the same session, and locking here locks it.</li>
-        </ul>
-      </Card>
     </>
   );
 }

@@ -62,6 +62,9 @@
 .lock-touch{overflow:hidden}
 .lock-touch.is-scanning{border-color:color-mix(in srgb,var(--accent) 45%,var(--border-strong));color:var(--text)}
 .lock-touch.is-scanning>.apm-icon{color:var(--accent);animation:auth-pulse 1s var(--ease-in-out) infinite}
+/* macOS draws its own Touch ID glyph over the icon while inline Touch ID is armed. */
+.lock-touch.has-glyph>.apm-icon{visibility:hidden;animation:none}
+.lock-touch.has-glyph::after{content:none}
 .lock-touch.is-scanning::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 14%,transparent),transparent);transform:translateX(-100%);animation:auth-sweep 1.3s var(--ease-in-out) infinite;pointer-events:none}
 .lock-bar{height:2px;border-radius:var(--radius-full);background:var(--fill-active);overflow:hidden}
 .lock-bar i{display:block;height:100%;border-radius:inherit;background:var(--text);transform-origin:left;animation:auth-derive 900ms var(--ease-in-out) forwards}

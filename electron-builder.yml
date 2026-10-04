@@ -24,6 +24,12 @@ afterPack: scripts/after-pack.cjs
 
 mac:
   category: public.app-category.productivity
+  # Inline Touch ID for the lock screen, built by npm run build:native.
+  extraResources:
+    - from: native/build
+      to: native
+      filter:
+        - "*.node"
   target:
     - dir
   # Icon Composer source. electron-builder compiles it with actool (Xcode 26+)

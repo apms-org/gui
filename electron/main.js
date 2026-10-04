@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { Backend, toEnvelopeError } = require("./backend");
+const { TouchId } = require("./touchid");
 const paths = require("./paths");
 const { buildMenu, aboutOptions, APP_NAME } = require("./menu");
 
@@ -31,6 +32,9 @@ let idleTimer = null;
 let clip = { text: null, timer: null };
 const approvedWrite = new Set();
 const approvedRead = new Set();
+// pm sends touchid.reply only from here, after the fingerprint check.
+const PRIVATE_METHODS = new Set(["touchid.reply"]);
+let touchId = null;
 
 function send(event, data) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("apm:event", { event, data: data === undefined ? null : data });
@@ -54,7 +58,9 @@ function resolveRuntime() {
 }
 
 function backendEnv() {
-  return Object.assign({}, process.env, { APM_DESKTOP: "1" });
+  const env = Object.assign({}, process.env, { APM_DESKTOP: "1" });
+  if (process.platform === "darwin") env.APM_DESKTOP_TOUCHID = "app";
+  return env;
 }
 
 function backendArgs() {
@@ -78,7 +84,12 @@ function startBackend() {
   resolveRuntime();
   try { paths.ensureParentDir(vaultPath); } catch (err) {}
   backend = new Backend({ command: pmPath, args: backendArgs(), env: backendEnv() });
-  backend.on("event", (event, data) => send(event, data));
+  backend.on("event", (event, data) => {
+    if (event === "touchid.prompt") { touchId.prompt(data || {}); return; }
+    if (event === "touchid.cancel") { touchId.cancelInline(data && data.id); return; }
+    send(event, data);
+  });
+  backend.on("spawn", () => touchId.cancelInline());
   backend.on("log", (line) => { if (!app.isPackaged) process.stderr.write("[pm] " + line + "\n"); });
   backend.start();
 }
@@ -144,8 +155,17 @@ function registerIpc() {
       err.code = "invalid";
       throw err;
     }
+    if (PRIVATE_METHODS.has(method)) {
+      const err = new Error("That method is not available to the window.");
+      err.code = "invalid";
+      throw err;
+    }
     return backend.call(method, params === undefined ? {} : params);
   }));
+
+  ipcMain.handle("apm:touchid-info", envelope(async () => ({ inline: touchId.inline })));
+  ipcMain.on("apm:touchid-slot", (_e, slot) => touchId.setSlot(slot));
+  ipcMain.on("apm:touchid-cancel", () => touchId.cancelInline());
 
   ipcMain.handle("apm:clipboard-write", envelope(async (_e, text, opts) => {
     const value = String(text === undefined || text === null ? "" : text);
@@ -357,7 +377,9 @@ function createWindow() {
   }
   mainWindow.loadURL(origin + "/index.html");
   mainWindow.once("ready-to-show", () => mainWindow.show());
-  mainWindow.on("closed", () => { mainWindow = null; });
+  mainWindow.on("blur", () => touchId.cancelInline());
+  mainWindow.webContents.on("did-start-navigation", (e) => { if (e.isMainFrame && !e.isSameDocument) { touchId.setSlot(null); touchId.cancelInline(); } });
+  mainWindow.on("closed", () => { touchId.setSlot(null); touchId.cancelInline(); mainWindow = null; });
 }
 
 function watchPower() {
@@ -388,6 +410,13 @@ if (!app.requestSingleInstanceLock()) {
     if (!app.isPackaged && process.platform === "darwin" && app.dock) {
       try { app.dock.setIcon(devIcon()); } catch (err) {}
     }
+    touchId = new TouchId({
+      packaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      window: () => mainWindow,
+      reply: (payload) => backend.call("touchid.reply", payload, { timeout: 5000 }),
+      notify: (on) => send("touchid.inline", { on })
+    });
     lockDownSession();
     registerProtocol();
     registerIpc();

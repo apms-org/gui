@@ -57,5 +57,10 @@ contextBridge.exposeInMainWorld("apmNative", {
   menu: {
     setState: (state) => ipcRenderer.send("apm:menu-state", state || {})
   },
+  touchId: {
+    info: () => invoke("apm:touchid-info"),
+    slot: (slot) => ipcRenderer.send("apm:touchid-slot", slot || null),
+    cancel: () => ipcRenderer.send("apm:touchid-cancel")
+  },
   platform: process.platform
 });
