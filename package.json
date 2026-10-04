@@ -15,7 +15,8 @@
     "web": "node scripts/build-renderer.mjs && node scripts/web-bridge.mjs",
     "dist": "node scripts/release.mjs",
     "test": "node --test \"test/*.test.js\"",
-    "ds:sync": "node scripts/sync-design-system.mjs"
+    "ds:sync": "node scripts/sync-design-system.mjs",
+    "icon:dev": "node scripts/render-icon.mjs"
   },
   "devDependencies": {
     "electron": "^43.3.0",

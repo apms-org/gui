@@ -106,31 +106,6 @@ export function Choice({ selected, onClick, icon, title, description, meta, badg
   );
 }
 
-export function FileDrop({ accept, onFile, label = "Drop a file here or choose one", hint, file }) {
-  const [over, setOver] = React.useState(false);
-  const ref = React.useRef(null);
-  const take = (fl) => { if (fl && fl[0]) onFile(fl[0]); };
-  return (
-    <div
-      className={cx("filedrop", over && "is-over", file && "has-file")}
-      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}
-      onClick={() => ref.current && ref.current.click()}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ref.current && ref.current.click(); } }}
-    >
-      <input ref={ref} type="file" accept={accept} hidden onChange={(e) => take(e.target.files)} />
-      <span className="filedrop-icon"><A.Icon name={file ? "file" : "upload"} size={18} /></span>
-      <span className="filedrop-text">
-        <b>{file ? file.name : label}</b>
-        <span>{file ? U.bytes(file.size) + " · click to replace" : hint}</span>
-      </span>
-    </div>
-  );
-}
-
 export function Meter({ value, tone, size = 120, stroke = 10, label, sub }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -170,11 +145,6 @@ export function Split({ left, right }) {
 
 export function Cli({ cmd, className }) {
   const prefs = useStore((s) => s.prefs);
-  const [done, setDone] = React.useState(false);
   if (prefs.showCli === false || !cmd) return null;
-  return (
-    <button type="button" className={cx("cli", done && "is-done", className)} title="Copy the pm command" onClick={(e) => { e.stopPropagation(); A.copyText(cmd); setDone(true); setTimeout(() => setDone(false), 1200); }}>
-      <span className="cli-prompt">$</span><span className="cli-cmd">{cmd}</span><A.Icon name={done ? "check" : "copy"} size={11} />
-    </button>
-  );
+  return <A.Command cmd={cmd} label="Copy the pm command" className={className} />;
 }

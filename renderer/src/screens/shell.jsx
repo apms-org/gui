@@ -13,6 +13,7 @@ import { History } from "./history.jsx";
 import { Settings } from "../settings/settings.jsx";
 import { copied } from "./fields.jsx";
 import { linkedTotp } from "./detail.jsx";
+import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 
@@ -47,7 +48,7 @@ function Sidebar({ analysis, theme, onTheme }) {
         <nav className="side-group" aria-label="Library">
           <A.NavItem icon="layers" label="All items" count={disk.items.filter(within).length} active={r.view === "vault" && r.filter === "all"} onClick={() => pick("all")} />
           <A.NavItem icon="star" label="Favorites" count={disk.items.filter((i) => i.fav && within(i)).length} active={r.view === "vault" && r.filter === "fav"} onClick={() => pick("fav")} />
-          <A.NavItem icon="timer" label="Authenticator" count={disk.items.filter((i) => i.type === "totp" && within(i)).length} active={r.view === "authenticator"} onClick={() => ui.go({ view: "authenticator" })} />
+          <A.NavItem icon="timer" label="Authenticator" count={disk.items.filter((i) => (i.type === "totp" || (i.type === "password" && i.f.totp)) && within(i)).length} active={r.view === "authenticator"} onClick={() => ui.go({ view: "authenticator" })} />
           <A.NavItem icon="radar" label="Watchtower" badge={analysis.issues.length ? { tone: analysis.issues.some((x) => x.tone === "danger") ? "danger" : "warning", text: String(analysis.issues.length) } : null} count={analysis.issues.length ? null : 0} active={r.view === "watchtower"} onClick={() => ui.go({ view: "watchtower" })} />
           <A.NavItem icon="history" label="History" active={r.view === "history"} onClick={() => ui.go({ view: "history" })} />
         </nav>
@@ -72,9 +73,10 @@ export const providerName = (id) => ({ github: "GitHub", gdrive: "Google Drive",
 
 function CommandHost({ disk, onTheme }) {
   const u = useUi();
+  useIcons();
   if (!u.cmd) return null;
   const openItem = (i) => { ui.go({ view: "vault", filter: "all" }); ui.query(""); ui.select(i.id); };
-  const items = disk.items.slice().sort((a, b) => (b.fav - a.fav) || (b.used - a.used)).map((i) => ({ id: i.id, label: titleOf(i), hint: subOf(i) || getType(i.type).label, keywords: getType(i.type).label + " " + (i.space || ""), tile: i.type === "password" ? { name: titleOf(i) } : { icon: getType(i.type).icon }, onSelect: () => openItem(i) }));
+  const items = disk.items.slice().sort((a, b) => (b.fav - a.fav) || (b.used - a.used)).map((i) => ({ id: i.id, label: titleOf(i), hint: subOf(i) || getType(i.type).label, keywords: getType(i.type).label + " " + (i.space || ""), tile: i.type === "password" ? { name: titleOf(i), src: iconFor(i) } : { icon: getType(i.type).icon, src: iconFor(i) }, onSelect: () => openItem(i) }));
   const copies = disk.items.filter((i) => getType(i.type).primary && primaryValue(i)).slice(0, 60).map((i) => ({ id: "c" + i.id, label: "Copy " + (getType(i.type).fields.find((x) => x.key === getType(i.type).primary) || {}).label.toLowerCase() + ": " + titleOf(i), icon: "copy", keywords: "copy " + titleOf(i), onSelect: () => { copied((getType(i.type).fields.find((x) => x.key === getType(i.type).primary) || {}).label || "secret", primaryValue(i), true, disk.settings.clipboard); act.used(i.id); } }));
   const nav = [
     { label: "All items", icon: "layers", onSelect: () => ui.go({ view: "vault", filter: "all" }) },
@@ -98,7 +100,7 @@ function CommandHost({ disk, onTheme }) {
     { label: "Keyboard shortcuts", icon: "keyboard", kbd: ["⌘", "/"], onSelect: () => ui.open("shortcuts") },
     { label: "Lock vault", icon: "lock", kbd: ["⌘", "L"], onSelect: () => act.lock("manual") }
   ];
-  const settings = [["general", "General"], ["security", "Security"], ["recovery", "Recovery"], ["sessions", "Sessions"], ["appearance", "Appearance"], ["spaces", "Spaces"], ["sync", "Sync"], ["passkeys", "Passkeys and extension"], ["ai", "AI access"], ["import", "Import and export"], ["developer", "Developer"], ["maintenance", "Maintenance"], ["alerts", "Alerts"], ["about", "About"]].map(([id, label]) => ({ label: "Settings: " + label, icon: "settings", onSelect: () => ui.go({ view: "settings", section: id }) }));
+  const settings = [["general", "General"], ["security", "Security"], ["recovery", "Recovery"], ["sessions", "Sessions"], ["appearance", "Appearance"], ["spaces", "Spaces"], ["sync", "Sync"], ["passkeys", "Browser extension"], ["ai", "AI access"], ["import", "Import and export"], ["developer", "Developer"], ["maintenance", "Maintenance"], ["alerts", "Alerts"], ["about", "About"]].map(([id, label]) => ({ label: "Settings: " + label, icon: "settings", onSelect: () => ui.go({ view: "settings", section: id }) }));
   return <A.CommandMenu open onClose={() => ui.cmd(false)} placeholder="Search items, actions and settings" groups={[{ label: "Items", items, limit: 8, idleLimit: 5 }, { label: "Actions", items: actions, limit: 6, idleLimit: 5 }, { label: "Copy", items: copies, limit: 5, idleLimit: 0 }, { label: "Go to", items: nav, limit: 6, idleLimit: 4 }, { label: "Settings", items: settings, limit: 5, idleLimit: 0 }]} />;
 }
 
@@ -107,7 +109,7 @@ export async function undoLast() {
   ui.toast(r.ok ? { title: "Undone", description: "Vault restored to the previous version.", icon: "undo-2" } : { title: r.error, tone: "danger" });
 }
 
-function ToastHost() {
+export function ToastHost() {
   const u = useUi();
   const disk = useStore((s) => s.disk);
   const prefs = useStore((s) => s.prefs);
@@ -191,7 +193,7 @@ function QuickLook({ disk }) {
           {it.f.file && /^image/.test(it.f.file.mime || "") && <QuickImage id={it.id} mime={it.f.file.mime} />}
           {it.type === "note" && <pre className="quick-note">{String(it.f.content || "").split("\n").slice(0, 18).join("\n")}</pre>}
           {tot && <div className="quick-totp"><A.TotpCode secret={tot.f.secret.replace(/\s/g, "")} size="lg" /></div>}
-          <div className="kv-list">{t.fields.filter((x) => x.key !== t.titleKey && it.f[x.key] && !["file", "note"].includes(x.kind)).slice(0, 6).map((x) => <div className="kv" key={x.key}><div className="kv-label">{x.label}</div><div className={cx("kv-value", x.mono && "is-mono")}>{["password", "secret", "secretBlock", "totp", "codes"].includes(x.kind) ? "••••••••••" : Array.isArray(it.f[x.key]) ? it.f[x.key].join(", ") : String(it.f[x.key])}</div></div>)}</div>
+          <div className="kv-list">{t.fields.filter((x) => x.key !== t.titleKey && it.f[x.key] && !["file", "note", "custom", "totp"].includes(x.kind)).slice(0, 6).map((x) => <div className="kv" key={x.key}><div className="kv-label">{x.label}</div><div className={cx("kv-value", x.mono && "is-mono")}>{["password", "secret", "secretBlock", "totp", "codes"].includes(x.kind) ? "••••••••••" : Array.isArray(it.f[x.key]) ? it.f[x.key].join(", ") : String(it.f[x.key])}</div></div>)}</div>
         </div>
         <div className="ql-foot"><span>Space or Esc to close</span><A.Button size="sm" variant="ghost" onClick={() => { const id = it.id; ui.quick(null); ui.select(id); }}>Open item</A.Button></div>
       </div>
@@ -271,10 +273,10 @@ export function Shell({ theme, onTheme }) {
     const t = setInterval(() => {
       const s = store.get().session;
       const st = store.get().disk ? store.get().disk.settings : disk.settings;
-      const idleMin = Number(st.inactivity || 15);
-      const maxMin = Number(st.sessionTimeout || 60);
-      if (s.unlocked && Date.now() - s.lastActive > idleMin * 60000) act.lock("idle");
-      else if (s.unlocked && Date.now() - s.unlockedAt > maxMin * 60000) act.lock("expired");
+      const idleMin = st.inactivity == null || st.inactivity === "" ? 15 : Number(st.inactivity);
+      const maxMin = st.sessionTimeout == null || st.sessionTimeout === "" ? 60 : Number(st.sessionTimeout);
+      if (s.unlocked && idleMin > 0 && Date.now() - s.lastActive > idleMin * 60000) act.lock("idle");
+      else if (s.unlocked && maxMin > 0 && Date.now() - s.unlockedAt > maxMin * 60000) act.lock("expired");
       if (s.readonly && s.readonlyUntil && Date.now() > s.readonlyUntil) act.endReadonly();
     }, 5000);
     const ev = (e) => { const d = e.detail || {}; if (d.name) ui.open(d.name, d.props); };

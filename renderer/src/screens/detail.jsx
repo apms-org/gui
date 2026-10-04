@@ -7,11 +7,21 @@ import { ui, useUi, openUrl } from "../lib/ui.js";
 import { trustOf, LEVEL_TONE, LEVEL_LABEL } from "../lib/health.js";
 import { FieldView, FieldEdit, copied, parseOtpauth } from "./fields.jsx";
 import { SPACE_COLORS } from "./spaces.jsx";
+import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 
+// ownTotp shapes a login's own 2FA key like an Authenticator item, so every
+// place that shows or copies codes treats both the same way.
+export function ownTotp(it) {
+  if (it.type !== "password" || !it.f.totp) return null;
+  const host = String(it.f.website || "").replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "").toLowerCase();
+  return { id: it.id, type: "totp", space: it.space, fav: it.fav, f: { account: it.f.account, secret: it.f.totp, domain: host }, own: true, login: it };
+}
 export function linkedTotp(disk, it) {
   if (it.type !== "password") return null;
+  const own = ownTotp(it);
+  if (own) return own;
   const name = String(it.f.account || "").toLowerCase();
   const host = String(it.f.website || "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
   return disk.items.find((x) => x.type === "totp" && x.f.secret && ((String(x.f.account || "").toLowerCase() === name) || (host && String(x.f.domain || "").toLowerCase() === host))) || null;
@@ -36,7 +46,8 @@ export function itemMenu(it, disk, extra) {
   if (it.f.username) items.push({ label: "Copy username", icon: "user", kbd: "⇧ ⌘ U", onSelect: () => copied("username", it.f.username, false, clip) });
   const tot = linkedTotp(disk, it) || (it.type === "totp" ? it : null);
   if (tot) items.push({ label: "Copy one-time code", icon: "timer", kbd: "⇧ ⌘ T", onSelect: async () => { const c = await A.totp(tot.f.secret.replace(/\s/g, "")); copied("one-time code", c, true, clip); } });
-  if (it.f.website) items.push({ label: "Open website", icon: "external-link", kbd: "⇧ ⌘ O", onSelect: () => openUrl(it.f.website) });
+  const site = it.f.website || (Array.isArray(it.f.urls) ? it.f.urls.find(Boolean) : "");
+  if (site) items.push({ label: "Open website", icon: "external-link", kbd: "⇧ ⌘ O", onSelect: () => openUrl(site) });
   items.push({ separator: true });
   items.push({ label: it.fav ? "Remove from favorites" : "Add to favorites", icon: "star", onSelect: () => act.favItems([it.id], !it.fav) });
   items.push({ label: "Edit", icon: "pencil", kbd: "⌘ E", onSelect: () => { ui.select(it.id); ui.edit(it.id); } });
@@ -55,6 +66,7 @@ export function Detail({ item: it, analysis }) {
   const session = useStore((s) => s.session);
   const u = useUi();
   const [tab, setTab] = React.useState("item");
+  useIcons();
   const editing = u.editing === it.id;
   const t = getType(it.type);
   React.useEffect(() => { setTab("item"); }, [it.id]);
@@ -86,7 +98,7 @@ export function Detail({ item: it, analysis }) {
       <div className="detail-scroll">
         <div className="detail-body" key={it.id + tab}>
           <div className="hero">
-            <A.ItemIcon name={titleOf(it)} size="lg" icon={it.type === "password" ? undefined : t.icon} />
+            <A.ItemIcon name={titleOf(it)} size="lg" icon={it.type === "password" ? undefined : t.icon} src={iconFor(it)} />
             <div className="hero-text">
               <h2 className="title-1 hero-title">{titleOf(it)}</h2>
               <div className="hero-badges">
@@ -108,9 +120,9 @@ export function Detail({ item: it, analysis }) {
             ))}
             <A.FieldGroup>
               {fields.map((f) => <FieldView key={f.key} def={f} value={it.f[f.key]} item={it} clip={clip} onUseCode={(c) => act.useCode(it.id, c)} />)}
-              {tot && <A.SecretField label="One-time code" icon="timer" totp={tot.f.secret.replace(/\s/g, "")} onCopy={(l, v) => copied(l, v, true, clip)} extra={<A.IconButton icon="link-2" label={"From Authenticator: " + titleOf(tot)} onClick={() => ui.select(tot.id)} />} />}
+              {tot && !tot.own && <A.SecretField label="One-time code" icon="timer" totp={tot.f.secret.replace(/\s/g, "")} onCopy={(l, v) => copied(l, v, true, clip)} extra={<A.IconButton icon="link-2" label={"From Authenticator: " + titleOf(tot)} onClick={() => ui.select(tot.id)} />} />}
               {login && <A.SecretField label="Used by" icon="link-2" value={<button type="button" className="linkbtn" onClick={() => ui.select(login.id)}>{titleOf(login)} login</button>} copyable={false} />}
-              {!fields.some((f) => it.f[f.key]) && !tot && <div className="fields-empty">No details yet. <button type="button" className="linkbtn" onClick={() => ui.edit(it.id)}>Add some</button></div>}
+              {!fields.some((f) => it.f[f.key] && (!Array.isArray(it.f[f.key]) || it.f[f.key].length)) && !tot && <div className="fields-empty">No details yet. <button type="button" className="linkbtn" onClick={() => ui.edit(it.id)}>Add some</button></div>}
             </A.FieldGroup>
             {it.passkeys && it.passkeys.length > 0 && <Passkeys it={it} />}
             <div className="meta-foot">
@@ -133,7 +145,7 @@ function Passkeys({ it }) {
   const [label, setLabel] = React.useState("");
   return (
     <div className="section">
-      <div className="section-h"><span>Passkeys</span><span className="muted">Saved by the APM browser extension</span></div>
+      <div className="section-h"><span>Passkeys</span></div>
       <A.FieldGroup>
         {it.passkeys.map((p) => (
           <div className="pkrow" key={p.id}>
@@ -158,6 +170,22 @@ function Passkeys({ it }) {
   );
 }
 
+function EditPasskeys({ it }) {
+  if (it.passkeys && it.passkeys.length) return <Passkeys it={it} />;
+  return (
+    <div className="section">
+      <div className="section-h"><span>Passkeys</span></div>
+      <div className="fields-empty"><A.Icon name="fingerprint" size={14} />No passkeys yet. When a site offers to create one, the APM browser extension saves it to this login.</div>
+    </div>
+  );
+}
+
+function diffVal(x) {
+  if (x == null || x === "" || (Array.isArray(x) && !x.length)) return "empty";
+  if (Array.isArray(x)) return x.map((y) => (y && typeof y === "object" ? y.label || "field" : y)).join(", ");
+  return String(x);
+}
+
 function diffKeys(a, b) { const ks = new Set(Object.keys(a || {}).concat(Object.keys(b || {}))); return Array.from(ks).filter((k) => JSON.stringify((a || {})[k]) !== JSON.stringify((b || {})[k])); }
 
 function Versions({ it }) {
@@ -176,7 +204,7 @@ function Versions({ it }) {
             <div className="version-text">
               <b>{U.dateTime(v.ts)}</b>
               <span>{changed.length ? "Changed " + changed.map(labelOf).join(", ").toLowerCase() : "No field changes"}</span>
-              <div className="version-diff">{changed.slice(0, 3).map((k) => { const secret = ["password", "secret", "secretBlock"].includes((t.fields.find((x) => x.key === k) || {}).kind); return <div key={k} className="diffrow"><span className="diffk">{labelOf(k)}</span><span className="diffold">{secret ? "••••••" : String(v.f[k] == null ? "empty" : v.f[k])}</span><A.Icon name="arrow-right" size={12} /><span className="diffnew">{secret ? "••••••" : String(prev[k] == null ? "empty" : prev[k])}</span></div>; })}</div>
+              <div className="version-diff">{changed.slice(0, 3).map((k) => { const secret = ["password", "secret", "secretBlock", "totp"].includes((t.fields.find((x) => x.key === k) || {}).kind); return <div key={k} className="diffrow"><span className="diffk">{labelOf(k)}</span><span className="diffold">{secret ? "••••••" : diffVal(v.f[k])}</span><A.Icon name="arrow-right" size={12} /><span className="diffnew">{secret ? "••••••" : diffVal(prev[k])}</span></div>; })}</div>
             </div>
             <A.Button size="sm" variant="ghost" icon="rotate-ccw" onClick={() => ui.open("confirm", { title: "Restore this version?", description: "The current values become a new version, so you can undo this too.", icon: "rotate-ccw", confirm: "Restore version", onConfirm: async () => { const r = await act.restoreVersion(it.id, i); if (r.ok) ui.toast({ title: "Version restored" }); } })}>Restore</A.Button>
           </div>
@@ -234,11 +262,14 @@ function EditItem({ it }) {
   const [err, setErr] = React.useState(null);
   const dirty = JSON.stringify(f) !== JSON.stringify(it.f) || space !== (it.space || "");
   const [busy, setBusy] = React.useState(false);
+  useIcons();
   const save = async () => {
     if (busy || !dirty) return;
     const miss = t.fields.find((x) => x.required && (f[x.key] == null || f[x.key] === "" || (Array.isArray(f[x.key]) && !f[x.key].length)));
     if (miss) { setErr("“" + miss.label + "” is required."); return; }
     const data = Object.assign({}, f);
+    if (it.type === "password" && data.totp) { const p = parseOtpauth(data.totp); if (p) data.totp = p.secret; data.totp = String(data.totp).replace(/[\s-]/g, "").toUpperCase(); if (!/^[A-Z2-7]+=*$/.test(data.totp)) { setErr("That two-factor setup key is not valid. Paste the key or the otpauth:// link the site shows."); return; } }
+    if (Array.isArray(data.fields)) data.fields = data.fields.filter((x) => x && (String(x.label || "").trim() || String(x.value || "").trim()));
     if (it.type === "totp") { const p = parseOtpauth(data.secret); if (p) data.secret = p.secret; data.secret = String(data.secret).replace(/\s/g, "").toUpperCase(); if (!/^[A-Z2-7]+=*$/.test(data.secret)) { setErr("That setup key is not valid base32."); return; } }
     const pol = activePolicy(disk);
     if (pol && pol.min_length && passwordKey(it.type) && data.password && data.password !== it.f.password && data.password.length < pol.min_length) { setErr("Policy “" + pol.name + "” needs passwords of at least " + pol.min_length + " characters."); return; }
@@ -267,7 +298,7 @@ function EditItem({ it }) {
       <div className="detail-scroll">
         <div className="detail-body edit-body">
           <div className="hero">
-            <A.ItemIcon name={f[t.titleKey] || t.label} size="lg" icon={it.type === "password" ? undefined : t.icon} />
+            <A.ItemIcon name={f[t.titleKey] || t.label} size="lg" icon={it.type === "password" ? undefined : t.icon} src={iconFor(it)} />
             <div className="hero-text grow">
               <input className="title-input" value={f[t.titleKey] || ""} onChange={(e) => setF({ ...f, [t.titleKey]: e.target.value })} placeholder={t.label + " name"} aria-label="Name" autoFocus />
               <div className="hero-badges"><A.Badge icon={t.icon}>{t.label}</A.Badge></div>
@@ -277,6 +308,7 @@ function EditItem({ it }) {
             {t.fields.filter((x) => x.key !== t.titleKey).map((x) => <FieldEdit key={x.key} def={x} value={f[x.key]} onChange={(v) => setF({ ...f, [x.key]: v })} policy={activePolicy(disk)} />)}
             <A.Select label="Space" icon="layers" value={space} onChange={setSpace} options={[{ value: "", label: "Default" }].concat(disk.spaces.map((s) => ({ value: s.name, label: s.name })))} />
           </div>
+          {it.type === "password" && <EditPasskeys it={it} />}
           {err && <div className="apm-hint apm-hint-danger apm-hint-enter"><A.Icon name="triangle-alert" size={14} />{err}</div>}
           <p className="help">Saving keeps the current values as a version you can restore. Press <A.Kbd keys={["⌘", "S"]} /> to save, <A.Kbd keys={["Esc"]} /> to cancel.</p>
         </div>

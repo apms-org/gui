@@ -6,6 +6,7 @@ import { ui } from "../lib/ui.js";
 import { LEVEL_TONE, LEVEL_LABEL } from "../lib/health.js";
 import { register } from "../lib/registry.js";
 import { Meter, Cli } from "../ui/kit.jsx";
+import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 const KINDS = [
@@ -19,6 +20,7 @@ const KINDS = [
 ];
 
 export function Watchtower({ analysis: a }) {
+  useIcons();
   const disk = useStore((s) => s.disk);
   const [tab, setTab] = React.useState("all");
   const tone = a.score >= 80 ? "success" : a.score >= 50 ? "warning" : "danger";
@@ -65,7 +67,7 @@ export function Watchtower({ analysis: a }) {
           <div className="issues">
             {issues.map((x) => (
               <div key={x.id} className="issue">
-                <A.ItemIcon name={titleOf(x.item)} size="md" icon={x.item.type === "password" ? undefined : getType(x.item.type).icon} />
+                <A.ItemIcon name={titleOf(x.item)} size="md" icon={x.item.type === "password" ? undefined : getType(x.item.type).icon} src={iconFor(x.item)} />
                 <div className="issue-text">
                   <div className="issue-top"><b>{titleOf(x.item)}</b><A.Badge size="sm" tone={x.tone}>{x.title}</A.Badge></div>
                   <span>{x.body}</span>
@@ -86,13 +88,14 @@ export function Watchtower({ analysis: a }) {
 }
 
 function TrustTable({ a }) {
+  useIcons();
   const rows = a.trust.slice().sort((x, y) => x.score - y.score);
   return (
     <div className="trust-table" role="table" aria-label="Trust scores">
       <div className="trust-row is-head" role="row"><span>Item</span><span>Score</span><span>Risk</span><span>Why</span></div>
       {rows.map((r) => (
         <button type="button" key={r.item.id} className="trust-row" role="row" onClick={() => { ui.go({ view: "vault", filter: "all" }); ui.select(r.item.id); }}>
-          <span className="trust-item"><A.ItemIcon name={titleOf(r.item)} size="sm" icon={r.item.type === "password" ? undefined : getType(r.item.type).icon} /><b>{titleOf(r.item)}</b></span>
+          <span className="trust-item"><A.ItemIcon name={titleOf(r.item)} size="sm" icon={r.item.type === "password" ? undefined : getType(r.item.type).icon} src={iconFor(r.item)} /><b>{titleOf(r.item)}</b></span>
           <span className="trust-score"><span className="mono">{r.score}</span><A.Progress value={r.score} tone={LEVEL_TONE[r.level] === "accent" ? undefined : LEVEL_TONE[r.level]} /></span>
           <span><A.Badge size="sm" tone={LEVEL_TONE[r.level]}>{LEVEL_LABEL[r.level]}</A.Badge></span>
           <span className="trust-why">{r.reasons.length ? r.reasons.map((x) => x.text).join(" · ") : "No risk factors"}</span>

@@ -1,6 +1,6 @@
 import { A } from "../lib/ds.js";
 import U from "../lib/util.js";
-import { fmtSize } from "../lib/types.js";
+import { fmtSize, customFields } from "../lib/types.js";
 import { ui } from "../lib/ui.js";
 import { A as act } from "../lib/store.js";
 import { GeneratorPopover } from "./generator.jsx";
@@ -40,7 +40,7 @@ export function FieldView({ def, value, item, clip, onUseCode }) {
       {days != null && days < 60 && <span className={cx("due", days < 0 ? "is-danger" : days < 30 ? "is-warning" : "")}>{days < 0 ? "Expired " + Math.abs(days) + " days ago" : days === 0 ? "Expires today" : "In " + days + " days"}</span>}
     </A.SecretField>
   ); }
-  if (k === "list") return value.map((v, i) => { const href = /^https?:/.test(v) ? v : "https://" + v; return <A.SecretField key={i} label={i === 0 ? def.label : ""} icon={i === 0 ? def.icon : null} value={v} href={href} onCopy={onCopy} />; });
+  if (k === "list") return value.map((v, i) => { const href = /^https?:/.test(v) ? v : "https://" + v; return <A.SecretField key={i} label={i === 0 ? def.label : ""} icon={i === 0 ? def.icon : null} value={String(v).replace(/^https?:\/\//, "")} href={href} onCopy={onCopy} />; });
   if (k === "tags") return <div className="apm-sf"><div className="apm-sf-label"><A.Icon name={def.icon || "tag"} size={14} /><span>{def.label}</span></div><div className="apm-sf-body"><div className="tagrow">{value.map((t) => <A.Badge key={t} outline icon="tag">{t}</A.Badge>)}</div></div><div /></div>;
   if (k === "env") {
     const rows = parseEnv(value);
@@ -52,6 +52,7 @@ export function FieldView({ def, value, item, clip, onUseCode }) {
       </div>
     );
   }
+  if (k === "custom") return customFields(value).map((x, i) => <A.SecretField key={i} label={x.label || "Field " + (i + 1)} icon={i === 0 ? def.icon : null} value={String(x.value || "")} secret={!!x.hidden} onCopy={(l, v) => copied(l, v, !!x.hidden, clip)} />);
   if (k === "codes") return <CodesView def={def} codes={value} used={item.f.used || []} clip={clip} onUse={onUseCode} />;
   if (k === "note") return <NoteView value={value} item={item} />;
   if (k === "file") return <FileView def={def} file={value} item={item} />;
@@ -167,7 +168,7 @@ export function FieldEdit({ def, value, onChange, autoFocus, policy }) {
       </div>
     );
   }
-  if (k === "secret" || k === "totp") return <A.Input id={id} label={label} type="text" className="mono-input" value={value || ""} onChange={(e) => onChange(k === "totp" ? e.target.value.toUpperCase() : e.target.value)} autoFocus={autoFocus} spellCheck={false} autoComplete="off" icon={def.icon} placeholder={def.placeholder} hint={k === "totp" ? "Paste the key, or an otpauth:// link. Spaces are ignored." : def.hint} />;
+  if (k === "secret" || k === "totp") return <A.Input id={id} label={label} type="text" className="mono-input" value={value || ""} onChange={(e) => onChange(k === "totp" && !/^otpauth:/i.test(e.target.value) ? e.target.value.toUpperCase() : e.target.value)} autoFocus={autoFocus} spellCheck={false} autoComplete="off" icon={def.icon} placeholder={def.placeholder} hint={k === "totp" ? "Paste the key, or an otpauth:// link. Spaces are ignored." : def.hint} />;
   if (k === "secretBlock" || k === "env") return <A.Textarea id={id} label={label} mono rows={k === "env" ? 4 : 6} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={k === "env" ? "KEY=value" : "-----BEGIN ...-----"} hint={def.hint} />;
   if (k === "multiline" || k === "note") return <A.Textarea id={id} label={label} rows={k === "note" ? 10 : 3} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={def.placeholder} />;
   if (k === "select") return <A.Select id={id} label={label} value={value || def.options[0]} onChange={onChange} options={def.options} icon={def.icon} />;
@@ -177,17 +178,37 @@ export function FieldEdit({ def, value, onChange, autoFocus, policy }) {
   if (k === "list" || k === "tags") return <ListEdit def={def} label={label} value={value || []} onChange={onChange} />;
   if (k === "codes") return <A.Textarea id={id} label={label} mono rows={5} value={(value || []).join("\n")} onChange={(e) => onChange(e.target.value.split(/\n/).map((x) => x.trim()).filter(Boolean))} placeholder={"One code per line"} hint={(value || []).length + " codes"} />;
   if (k === "file") return <FileEdit def={def} label={label} value={value} onChange={onChange} />;
+  if (k === "custom") return <CustomEdit def={def} label={label} value={value || []} onChange={onChange} />;
   return <A.Input id={id} label={label} type={k === "email" ? "email" : k === "phone" ? "tel" : "text"} className={def.mono ? "mono-input" : undefined} value={value || ""} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} placeholder={def.placeholder} icon={def.icon} hint={def.hint} spellCheck={def.mono ? false : undefined} />;
 }
 
 function ListEdit({ def, label, value, onChange }) {
   const [v, setV] = React.useState("");
-  const add = () => { const x = v.trim(); if (x && !value.includes(x)) onChange(value.concat([x])); setV(""); };
+  const add = () => { const parts = def.kind === "list" ? v.split(/[\s,]+/) : [v]; const next = value.slice(); parts.map((x) => x.trim()).filter(Boolean).forEach((x) => { if (!next.includes(x)) next.push(x); }); if (next.length !== value.length) onChange(next); setV(""); };
   return (
     <div className="apm-field">
       <span className="apm-label">{label}</span>
       {value.length > 0 && <div className="tagrow">{value.map((x) => <span key={x} className="space-chip">{x}<button type="button" aria-label={"Remove " + x} onClick={() => onChange(value.filter((y) => y !== x))}><A.Icon name="x" size={12} /></button></span>)}</div>}
-      <div className="inline-add"><A.Input placeholder={def.placeholder || (def.kind === "tags" ? "Add a tag" : "Add")} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} icon={def.icon} /><A.Button onClick={add} disabled={!v.trim()}>Add</A.Button></div>
+      <div className="inline-add"><A.Input placeholder={def.placeholder || (def.kind === "tags" ? "Add a tag" : "Add")} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} onBlur={() => { if (def.kind === "list" && v.trim()) add(); }} icon={def.icon} /><A.Button onClick={add} disabled={!v.trim()}>Add</A.Button></div>
+    </div>
+  );
+}
+
+function CustomEdit({ def, label, value, onChange }) {
+  const set = (i, patch) => onChange(value.map((x, j) => (j === i ? Object.assign({}, x, patch) : x)));
+  return (
+    <div className="apm-field">
+      <span className="apm-label">{label}</span>
+      {value.map((x, i) => (
+        <div key={i} className="cf-row">
+          <A.Input size="sm" className="cf-label" placeholder="Label" value={x.label || ""} onChange={(e) => set(i, { label: e.target.value })} aria-label={"Field " + (i + 1) + " label"} autoFocus={!x.label && !x.value && i === value.length - 1} />
+          <A.Input size="sm" className={cx("cf-value", x.hidden && "fe-pw")} type={x.hidden ? "password" : "text"} placeholder="Value" value={x.value || ""} onChange={(e) => set(i, { value: e.target.value })} aria-label={(x.label || "Field " + (i + 1)) + " value"} spellCheck={false} autoComplete="off" />
+          <A.IconButton icon={x.hidden ? "eye-off" : "eye"} label={x.hidden ? "Hidden like a password. Click to show it plainly" : "Shown plainly. Click to hide it like a password"} active={!!x.hidden} onClick={() => set(i, { hidden: !x.hidden })} />
+          <A.IconButton icon="x" label="Remove field" onClick={() => onChange(value.filter((_, j) => j !== i))} />
+        </div>
+      ))}
+      <div><A.Button size="sm" variant="ghost" icon="plus" onClick={() => onChange(value.concat([{ label: "", value: "", hidden: false }]))}>Add field</A.Button></div>
+      <span className="apm-hint">PINs, security answers, account numbers. Hidden fields are masked and copied like passwords.</span>
     </div>
   );
 }
@@ -204,11 +225,8 @@ function FileEdit({ def, label, value, onChange }) {
   return (
     <div className="apm-field">
       <span className="apm-label">{label}</span>
-      <div className="filedrop" role="button" tabIndex={0} onClick={() => ref.current.click()} onKeyDown={(e) => { if (e.key === "Enter") ref.current.click(); }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); take(e.dataTransfer.files[0]); }}>
-        <input ref={ref} type="file" hidden accept={def.accept} onChange={(e) => take(e.target.files[0])} />
-        <span className="filedrop-icon"><A.Icon name={value ? "file" : "upload"} size={18} /></span>
-        <span className="filedrop-text"><b>{value ? value.name : "Drop a file or click to choose"}</b><span>{value ? fmtSize(value.size) + " · click to replace" : "Encrypted into the vault. The original stays where it is; delete it yourself."}</span></span>
-      </div>
+      <input ref={ref} type="file" hidden accept={def.accept} onChange={(e) => take(e.target.files[0])} />
+      <A.FileDrop file={value ? { name: value.name, size: value.size, detail: fmtSize(value.size) + " · click to replace" } : null} title="Drop a file or click to choose" hint="Encrypted into the vault. The original stays where it is; delete it yourself." onChoose={() => ref.current.click()} onDrop={take} />
       {err && <div className="apm-hint apm-hint-danger"><A.Icon name="triangle-alert" size={14} />{err}</div>}
     </div>
   );

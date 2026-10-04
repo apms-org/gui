@@ -3,7 +3,8 @@ import { ui } from "./lib/ui.js";
 import { A } from "./lib/ds.js";
 import { PRESETS, applyTheme } from "./lib/themes.js";
 import { Welcome, Setup, Lock, Recovery, CloudRestore, OpenVault } from "./screens/auth.jsx";
-import { Shell } from "./screens/shell.jsx";
+import { Shell, ToastHost } from "./screens/shell.jsx";
+import { PairHost } from "./screens/pair.jsx";
 
 const resolveTheme = (prefs) => {
   const id = prefs.theme || "system";
@@ -78,18 +79,22 @@ function App() {
   if (S.phase === "fatal") return <Fatal message={S.fatal} />;
   const exists = !!(S.status && S.status.exists);
   const back = () => setScreen(null);
-  if (screen === "setup" && !S.session.unlocked) return <Setup onCancel={() => setScreen(exists ? "welcome" : null)} />;
-  if (screen === "restore" && !S.session.unlocked) return <CloudRestore onCancel={() => setScreen(exists ? "welcome" : null)} onDone={back} />;
-  if (screen === "open" && !S.session.unlocked) return <OpenVault onCancel={() => setScreen(exists ? "welcome" : null)} />;
-  if (!exists || screen === "welcome") {
-    return <Welcome onCreate={() => setScreen("setup")} onRestore={() => setScreen("restore")} onOpen={() => setScreen("open")} onBack={exists ? Object.assign(back, { label: act.lockInfo().name }) : null} />;
-  }
-  if (!S.session.unlocked) {
-    if (screen === "recover") return <Recovery onDone={back} onCancel={back} />;
-    return <Lock onRecover={() => setScreen("recover")} onWelcome={() => setScreen("welcome")} theme={base} onTheme={onTheme} />;
-  }
-  if (!S.disk) return <Boot />;
-  return <Shell theme={base} onTheme={onTheme} />;
+  const gate = () => {
+    if (screen === "setup" && !S.session.unlocked) return <Setup onCancel={() => setScreen(exists ? "welcome" : null)} />;
+    if (screen === "restore" && !S.session.unlocked) return <CloudRestore onCancel={() => setScreen(exists ? "welcome" : null)} onDone={back} />;
+    if (screen === "open" && !S.session.unlocked) return <OpenVault onCancel={() => setScreen(exists ? "welcome" : null)} />;
+    if (!exists || screen === "welcome") {
+      return <Welcome onCreate={() => setScreen("setup")} onRestore={() => setScreen("restore")} onOpen={() => setScreen("open")} onBack={exists ? Object.assign(back, { label: act.lockInfo().name }) : null} />;
+    }
+    if (!S.session.unlocked) {
+      if (screen === "recover") return <Recovery onDone={back} onCancel={back} />;
+      return <Lock onRecover={() => setScreen("recover")} onWelcome={() => setScreen("welcome")} theme={base} onTheme={onTheme} />;
+    }
+    if (!S.disk) return <Boot />;
+    return <Shell theme={base} onTheme={onTheme} />;
+  };
+  const view = gate();
+  return <>{view}<PairHost />{view.type !== Shell && <ToastHost />}</>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);

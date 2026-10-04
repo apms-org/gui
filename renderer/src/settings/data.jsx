@@ -3,9 +3,10 @@ import U from "../lib/util.js";
 import { useStore, A as act, store } from "../lib/store.js";
 import { ui, saveFile } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
-import { titleOf, getType, INJECT, EXPORTABLE } from "../lib/types.js";
+import { titleOf, getType, INJECT } from "../lib/types.js";
 import { Card, Head, Status } from "./common.jsx";
 import { CodeBlock, Cli } from "../ui/kit.jsx";
+import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 const envName = (it) => titleOf(it).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -14,28 +15,37 @@ export function ImportExport() {
   const disk = useStore((s) => s.disk);
   const lastExport = disk.audit.find((e) => e.action === "DATA_EXPORTED");
   const lastImport = disk.audit.find((e) => e.action === "DATA_IMPORTED");
+  const passkeys = disk.items.reduce((n, i) => n + (i.passkeys ? i.passkeys.length : 0), 0);
   return (
     <>
-      <Head title="Import and export" description="Move items in and out of APM. Exports can be encrypted with a separate password so the file is safe to store or send." />
+      <Head title="Import and export" description="Move your vault in and out of APM, passkeys included. You review every item before anything is written, and exports can be encrypted with a separate password." />
       <div className="io">
         <div className="io-card">
-          <button type="button" className="io-hit" aria-label="Import items" onClick={() => ui.open("import")} />
+          <button type="button" className="io-hit" aria-label="Import items" onClick={() => ui.open("import")} disabled={disk.readonly} />
           <span className="io-ic"><A.Icon name="file-up" size={18} /></span>
           <b>Import</b>
-          <span>APM JSON (plain or encrypted), CSV from browsers and other managers, or TXT with otpauth:// links.</span>
+          <span>1Password, Bitwarden, KeePass, Credential Exchange, browser CSV or an APM export. Passkeys come along where the source includes them.</span>
           <span className="io-meta">{lastImport ? "Last import " + U.ago(lastImport.ts) : "Nothing imported yet"}</span>
-          <Cli cmd="pm import vault.json" />
+          <Cli cmd="pm import <file>" />
         </div>
         <div className="io-card">
           <button type="button" className="io-hit" aria-label="Export items" onClick={() => ui.open("export")} />
           <span className="io-ic"><A.Icon name="file-down" size={18} /></span>
           <b>Export</b>
-          <span>JSON, CSV or TXT. {EXPORTABLE.length} item types can be exported. Files and media stay in the vault.</span>
+          <span>APM with every item type, Credential Exchange or Bitwarden with passkeys, or CSV and text. {passkeys ? U.n(passkeys, "passkey") + " can come along." : ""}</span>
           <span className="io-meta">{lastExport ? "Last export " + U.ago(lastExport.ts) : "Never exported"}</span>
-          <Cli cmd="pm export --encrypt-pass" />
+          <Cli cmd="pm export --format cxf" />
+        </div>
+        <div className="io-card">
+          <button type="button" className="io-hit" aria-label="Compare with an export" onClick={() => ui.open("compare")} />
+          <span className="io-ic"><A.Icon name="arrow-up-down" size={18} /></span>
+          <b>Compare</b>
+          <span>Check an export or backup against your vault: what is only in the file, what changed and what is new since. Restore what you lost.</span>
+          <span className="io-meta">Nothing changes until you restore</span>
+          <Cli cmd="pm export compare <file>" />
         </div>
       </div>
-      <Card title="Encrypted backup" description="A byte-for-byte copy of vault.dat. It opens with your current master password and nothing else."
+      <Card title="Encrypted backup" description="A byte-for-byte copy of vault.dat. It opens with your current master password and nothing else, and you can compare it with your vault later."
         footNote={"Includes " + U.n(disk.items.length, "item") + " and " + U.n(disk.spaces.length, "space") + ". History snapshots are not included."}
         footer={<A.Button size="sm" icon="download" onClick={() => act.backup()}>Save a backup</A.Button>} />
     </>
@@ -44,6 +54,7 @@ export function ImportExport() {
 
 export function Developer() {
   const disk = useStore((s) => s.disk);
+  useIcons();
   const pool = disk.items.filter((i) => INJECT[i.type]);
   const [pick, setPick] = React.useState(() => pool.filter((i) => ["apikey", "token", "docker"].includes(i.type)).slice(0, 3).map((i) => i.id));
   const [names, setNames] = React.useState({});
@@ -66,7 +77,7 @@ export function Developer() {
               {shown.map((i) => (
                 <label key={i.id} className={cx("inj-item", pick.includes(i.id) && "is-on")}>
                   <input type="checkbox" checked={pick.includes(i.id)} onChange={() => setPick(pick.includes(i.id) ? pick.filter((x) => x !== i.id) : pick.concat([i.id]))} />
-                  <A.ItemIcon name={titleOf(i)} size="sm" icon={i.type === "password" ? undefined : getType(i.type).icon} />
+                  <A.ItemIcon name={titleOf(i)} size="sm" icon={i.type === "password" ? undefined : getType(i.type).icon} src={iconFor(i)} />
                   <span className="ellipsis">{titleOf(i)}</span>
                   <span className="muted small">{getType(i.type).label}</span>
                 </label>

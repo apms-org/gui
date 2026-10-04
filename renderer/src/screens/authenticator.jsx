@@ -4,8 +4,9 @@ import { useStore, A as act, store } from "../lib/store.js";
 import { titleOf } from "../lib/types.js";
 import { ui } from "../lib/ui.js";
 import { copied } from "./fields.jsx";
-import { linkedLogin } from "./detail.jsx";
+import { linkedLogin, ownTotp } from "./detail.jsx";
 import { Cli } from "../ui/kit.jsx";
+import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 
@@ -28,6 +29,7 @@ function useCodes(list, now) {
 }
 
 export function Authenticator() {
+  useIcons();
   const disk = useStore((s) => s.disk);
   const prefs = useStore((s) => s.prefs);
   const now = useClock();
@@ -35,7 +37,7 @@ export function Authenticator() {
   const [drag, setDrag] = React.useState(null);
   const space = prefs.space ?? "all";
   const order = disk.totpOrder || [];
-  let list = disk.items.filter((i) => i.type === "totp" && (space === "all" || (i.space || "") === space));
+  let list = disk.items.map((i) => (i.type === "totp" ? i : ownTotp(i))).filter((i) => i && (space === "all" || (i.space || "") === space));
   list = list.slice().sort((a, b) => { const ia = order.indexOf(a.id), ib = order.indexOf(b.id); if (ia >= 0 && ib >= 0) return ia - ib; if (ia >= 0) return -1; if (ib >= 0) return 1; return titleOf(a).localeCompare(titleOf(b)); });
   const shown = q ? list.filter((i) => (titleOf(i) + " " + (i.f.domain || "")).toLowerCase().includes(q.toLowerCase())) : list;
   const codes = useCodes(list, now);
@@ -73,20 +75,22 @@ export function Authenticator() {
           <div className="totp-grid">
             {shown.map((i, ix) => {
               const c = codes[i.id] || {};
-              const login = linkedLogin(disk, i);
+              const login = i.own ? i.login : linkedLogin(disk, i);
               return (
                 <div key={i.id} className={cx("totp-card", low && "is-low", drag === i.id && "is-drag")} draggable onDragStart={() => setDrag(i.id)} onDragEnd={() => setDrag(null)} onDragOver={(e) => e.preventDefault()} onDrop={() => drop(i.id)}>
                   <div className="totp-card-head">
-                    <A.ItemIcon name={titleOf(i)} size="md" />
-                    <div className="totp-card-name"><b>{titleOf(i)}</b><span>{i.f.domain || (login ? "Linked to " + titleOf(login) : "No website")}</span></div>
+                    <A.ItemIcon name={titleOf(i)} size="md" src={(i.own ? null : iconFor(i)) || (login ? iconFor(login) : undefined)} />
+                    <div className="totp-card-name"><b>{titleOf(i)}</b><span>{i.own ? (i.f.domain ? i.f.domain + " · " : "") + "In login" : i.f.domain || (login ? "Linked to " + titleOf(login) : "No website")}</span></div>
                     {ix < 9 && <span className="totp-num" aria-label={"Press " + (ix + 1) + " to copy"}>{ix + 1}</span>}
                     <A.Menu align="end" width={210} trigger={<A.IconButton icon="ellipsis" label="More" tip={false} size="xs" />} items={[
                       { label: "Copy code", icon: "copy", onSelect: () => copy(i) },
-                      { label: "Open item", icon: "arrow-up-right", onSelect: () => { ui.go({ view: "vault", filter: "all" }); ui.select(i.id); } },
+                      i.own ? null : { label: "Open item", icon: "arrow-up-right", onSelect: () => { ui.go({ view: "vault", filter: "all" }); ui.select(i.id); } },
                       login ? { label: "Open " + titleOf(login) + " login", icon: "globe", onSelect: () => { ui.go({ view: "vault", filter: "all" }); ui.select(login.id); } } : null,
-                      { label: "Edit", icon: "pencil", onSelect: () => { ui.go({ view: "vault", filter: "all" }); ui.select(i.id); ui.edit(i.id); } },
+                      { label: i.own ? "Edit login" : "Edit", icon: "pencil", onSelect: () => { ui.go({ view: "vault", filter: "all" }); ui.select(i.id); ui.edit(i.id); } },
                       { separator: true },
-                      { label: "Delete", icon: "trash-2", danger: true, onSelect: () => ui.open("delete", { ids: [i.id] }) }
+                      i.own
+                        ? { label: "Remove code from login", icon: "trash-2", danger: true, onSelect: () => ui.open("confirm", { title: "Remove the two-factor code from " + titleOf(i) + "?", description: "The login keeps its password and passkeys. Make sure you can still sign in, for example with recovery codes, before you remove it.", icon: "timer", tone: "danger", confirm: "Remove code", onConfirm: async () => { const r = await act.updateItem(i.id, { f: { totp: "" } }, "Removed two-factor code from " + titleOf(i)); if (r.ok) ui.toast({ title: "Two-factor code removed" }); } }) }
+                        : { label: "Delete", icon: "trash-2", danger: true, onSelect: () => ui.open("delete", { ids: [i.id] }) }
                     ].filter(Boolean)} />
                   </div>
                   <button type="button" className="totp-code" onClick={() => copy(i)} aria-label={"Copy code for " + titleOf(i)}>

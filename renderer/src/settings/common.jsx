@@ -56,6 +56,28 @@ export const left = (ms) => {
   return Math.floor(h / 24) + " days left";
 };
 
+export const lockMinutes = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+
+export const lockLabel = (m) => m === 0 ? "Never" : m < 60 || m % 60 ? m + (m === 1 ? " minute" : " minutes") : m / 60 + (m === 60 ? " hour" : " hours");
+
+export const lockOptions = (list, cur) => {
+  const v = lockMinutes(cur);
+  const nums = list.filter(Boolean);
+  if (v && !nums.includes(v)) nums.push(v);
+  return nums.sort((a, b) => a - b).concat([0]).map((m) => ({ value: String(m), label: lockLabel(m) }));
+};
+
+export function lockSummary(st) {
+  const idle = lockMinutes(st.inactivity);
+  const max = lockMinutes(st.sessionTimeout);
+  const parts = [];
+  if (idle) parts.push("after " + lockLabel(idle) + " idle");
+  if (max) parts.push(lockLabel(max) + " after unlocking");
+  if (st.lockOnSleep) parts.push("when the Mac sleeps");
+  if (!parts.length) return "Never locks on its own. Lock it yourself with ⌘L.";
+  return "Locks " + (parts.length > 1 ? parts.slice(0, -1).join(", ") + " or " + parts[parts.length - 1] : parts[0]) + ".";
+}
+
 export function Steps({ items }) {
   return (
     <ol className="howto">

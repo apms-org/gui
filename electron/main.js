@@ -304,6 +304,12 @@ function lockDownSession() {
   ses.setPermissionCheckHandler(() => false);
 }
 
+// build/icon-dev.png is AppIcon.icon rendered by `npm run icon:dev`.
+function devIcon() {
+  const rendered = path.join(__dirname, "..", "build", "icon-dev.png");
+  return fs.existsSync(rendered) ? rendered : path.join(__dirname, "..", "build", "icon.png");
+}
+
 function createWindow() {
   const dark = nativeTheme.shouldUseDarkColors;
   mainWindow = new BrowserWindow({
@@ -315,7 +321,7 @@ function createWindow() {
     show: false,
     backgroundColor: dark ? "#09090b" : "#ffffff",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    ...(app.isPackaged ? {} : { icon: path.join(__dirname, "..", "build", "icon.png") }),
+    ...(app.isPackaged ? {} : { icon: devIcon() }),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -375,8 +381,12 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    // A packaged app gets its icon from Assets.car, which macOS 26+ draws with
+    // the system glass, shadow and icon styles. Never set a Dock image there: a
+    // bitmap replaces all of that. In development Electron.app would otherwise
+    // show the Electron icon.
     if (!app.isPackaged && process.platform === "darwin" && app.dock) {
-      try { app.dock.setIcon(path.join(__dirname, "..", "build", "icon.png")); } catch (err) {}
+      try { app.dock.setIcon(devIcon()); } catch (err) {}
     }
     lockDownSession();
     registerProtocol();

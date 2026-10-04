@@ -20,12 +20,16 @@ extraResources:
 
 npmRebuild: false
 asar: true
+afterPack: scripts/after-pack.cjs
 
 mac:
   category: public.app-category.productivity
   target:
     - dir
-  icon: build/icon.icns
+  # Icon Composer source. electron-builder compiles it with actool (Xcode 26+)
+  # into Assets.car and sets CFBundleIconName, so macOS 26+ draws the glass,
+  # the shadow and the Default, Dark, Clear and Tinted styles itself.
+  icon: build/AppIcon.icon
   hardenedRuntime: false
   gatekeeperAssess: false
 

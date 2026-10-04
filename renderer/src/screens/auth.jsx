@@ -359,7 +359,7 @@ export function Setup({ onCancel }) {
             <div className="next-grid">
               <Choice arrow icon="download" title="Import passwords" description="From a CSV, JSON or otpauth export." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:open", { detail: { name: "import" } })), 50); }} />
               <Choice arrow icon="plus" title="Add your first item" description="A login, a card, an SSH key, anything." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:open", { detail: { name: "new" } })), 50); }} />
-              <Choice arrow icon="fingerprint" title="Pair the browser extension" description="Save passkeys from Chrome, Arc or Brave." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:go", { detail: { view: "settings", section: "passkeys" } })), 50); }} />
+              <Choice arrow icon="puzzle" title="Connect the browser extension" description="Fill logins, codes and passkeys in Chrome, Arc or Brave." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:go", { detail: { view: "settings", section: "passkeys" } })), 50); }} />
             </div>
             <A.Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => act.enter()}>Open vault</A.Button>
           </div>
@@ -450,7 +450,7 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
     autoTouchTried = true;
     touch(true);
   }, []);
-  const idle = session.lockedAt ? (session.lockReason === "idle" ? "Locked after a period of inactivity" : session.lockReason === "sleep" ? "Locked when your Mac went to sleep" : session.lockReason === "expired" ? "Locked when the session ended" : "Locked " + U.agoLong(session.lockedAt)) : "Locked";
+  const idle = session.lockedAt ? (session.lockReason === "idle" ? "Locked after a period of inactivity" : session.lockReason === "sleep" ? "Locked when your Mac went to sleep" : session.lockReason === "expired" ? "Locked when the session ended" : session.lockReason === "Locked from the browser" ? "Locked from the browser" : "Locked " + U.agoLong(session.lockedAt)) : "Locked";
   const unlockMs = P.memory >= 512 ? 1500 : P.memory >= 256 ? 1100 : 750;
   return (
     <AuthFrame footer={<>

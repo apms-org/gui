@@ -17,18 +17,18 @@ const cx = U.cx;
 export const SECTIONS = [
   { group: "Vault", items: [
     { id: "general", label: "General", icon: "settings", keys: "name path version update behavior copy confirm density" },
-    { id: "security", label: "Security", icon: "shield", keys: "master password touch id auto lock clipboard profile argon2 cipher encryption policy" },
+    { id: "security", label: "Security", icon: "shield", keys: "master password touch id clipboard profile argon2 cipher encryption policy" },
     { id: "recovery", label: "Recovery", icon: "life-buoy", keys: "email recovery key codes passkey quorum trustee shares forgot" },
-    { id: "sessions", label: "Sessions", icon: "clock", keys: "read-only ephemeral agent ci session revoke" }
+    { id: "sessions", label: "Sessions", icon: "clock", keys: "auto lock autolock auto-lock inactivity idle sleep never timeout maximum unlock read-only ephemeral agent ci session revoke terminal" }
   ] },
   { group: "App", items: [
-    { id: "appearance", label: "Appearance", icon: "palette", keys: "theme dark light custom colors nord dracula density" },
+    { id: "appearance", label: "Appearance", icon: "palette", keys: "theme dark light custom colors nord dracula density website icons logos favicon cache" },
     { id: "spaces", label: "Spaces", icon: "layers", keys: "space work family rename delete color" },
     { id: "alerts", label: "Alerts", icon: "bell", keys: "security alerts email anomaly level" }
   ] },
   { group: "Connections", items: [
     { id: "sync", label: "Sync", icon: "cloud", keys: "cloud github google drive dropbox apmignore conflict diff" },
-    { id: "passkeys", label: "Passkeys and extension", icon: "fingerprint", keys: "passkey browser extension bridge pairing token webauthn" },
+    { id: "passkeys", label: "Browser extension", icon: "puzzle", keys: "passkey browser extension bridge pairing pair connect token webauthn autofill fill chrome edge arc brave" },
     { id: "ai", label: "AI access", icon: "bot", keys: "mcp claude cursor tokens approvals transactions" }
   ] },
   { group: "Data", items: [

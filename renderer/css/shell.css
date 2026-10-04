@@ -147,7 +147,8 @@ html[data-density="compact"] .detail .apm-sf{min-height:40px;padding-top:6px;pad
 .ident:active{background:var(--fill-active)}
 .ident:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-.fields-empty{padding:18px 16px;color:var(--text-tertiary);font-size:13px;line-height:18px}
+.fields-empty{display:flex;align-items:center;gap:8px;padding:18px 16px;color:var(--text-tertiary);font-size:13px;line-height:18px}
+.fields-empty .apm-icon{flex:none}
 .meta-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:0 4px;color:var(--text-tertiary);font-size:12px;line-height:16px}
 .meta-foot .linkbtn{display:inline-flex;align-items:center;gap:4px}
 .trust-inline{display:inline-flex;align-items:center;height:20px;margin-left:auto;padding:0 8px;border-radius:var(--radius-full);font-family:var(--font-mono);font-size:11px;font-weight:500;font-variant-numeric:tabular-nums}
@@ -270,6 +271,9 @@ html[data-density="compact"] .detail .apm-sf{min-height:40px;padding-top:6px;pad
 .req{margin-left:3px;color:var(--danger);font-weight:500}
 .inline-add{display:flex;align-items:flex-start;gap:8px}
 .inline-add .apm-field{flex:1;min-width:0}
+.cf-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr) auto auto;align-items:center;gap:8px}
+.cf-row .apm-field{min-width:0}
+@media (max-width:520px){.cf-row{grid-template-columns:minmax(0,1fr) auto auto}.cf-row .cf-value{grid-column:1/-1;grid-row:2}}
 .space-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .space-chip{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:26px;padding:0 3px 0 10px;border-radius:var(--radius-full);background:var(--fill);box-shadow:inset 0 0 0 1px var(--border);color:var(--text);font-size:12.5px;line-height:16px;font-weight:500;white-space:nowrap;animation:sh-pop 160ms cubic-bezier(.2,.8,.2,1)}
 .space-chip button{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:var(--radius-full);background:transparent;color:var(--text-tertiary);cursor:pointer;transition:background-color 120ms cubic-bezier(.2,.8,.2,1),color 120ms cubic-bezier(.2,.8,.2,1)}
@@ -336,14 +340,6 @@ html[data-density="compact"] .detail .apm-sf{min-height:40px;padding-top:6px;pad
 .dirty{color:var(--warning)}
 .clean{color:var(--success)}
 
-.import-head{display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-size:13px;line-height:18px}
-.import-list{display:flex;flex-direction:column;max-height:264px;overflow-y:auto;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--border)}
-.import-row{display:flex;align-items:center;gap:10px;box-sizing:border-box;min-height:40px;padding:6px 12px;font-size:13px;line-height:18px;cursor:pointer;transition:background-color 120ms cubic-bezier(.2,.8,.2,1)}
-.import-row+.import-row{box-shadow:inset 0 1px 0 var(--border)}
-.import-row:hover{background:var(--fill-hover)}
-.import-row .apm-check{flex:none}
-.import-name{flex:none;max-width:45%;overflow:hidden;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
-.import-row .muted{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .quick{display:flex;flex-direction:column;gap:16px}
 .quick-note{max-height:280px;margin:0;padding:12px 14px;overflow:auto;border-radius:var(--radius-md);background:var(--bg-subtle);box-shadow:inset 0 0 0 1px var(--border);color:var(--text-secondary);font-family:var(--font-mono);font-size:12.5px;line-height:19px;white-space:pre-wrap}
@@ -380,12 +376,11 @@ html[data-density="compact"] .detail .apm-sf{min-height:40px;padding-top:6px;pad
   .trustcard{grid-template-columns:minmax(0,1fr)}
   .diffk{min-width:64px}
   .picker-grid{grid-template-columns:minmax(0,1fr)}
-  .import-name{max-width:55%}
 }
 
 @media (prefers-reduced-motion:reduce){
   .shell,.main,.rowwrap,.detail-body,.bulk,.bulkbar,.ctxmenu,.popover,.gen-value,.space-chip{animation:none}
-  .bulk-stack span,.picker-item,.colorpick button,.title-input,.ident,.crumb,.side-search,.sync,.space,.code-use,.envval,.code-v,.suggest,.import-row,.side-alert{transition:none}
+  .bulk-stack span,.picker-item,.colorpick button,.title-input,.ident,.crumb,.side-search,.sync,.space,.code-use,.envval,.code-v,.suggest,.side-alert{transition:none}
   .picker-item:active{transform:none}
   .colorpick button:hover{transform:none}
 }

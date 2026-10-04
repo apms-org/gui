@@ -41,6 +41,18 @@ function Kbd({keys,children,className}){
   return h("span",{className:cx("apm-kbd",className)},list.map((k,i)=>h("kbd",{key:i},k)));
 }
 
+function Command({cmd,prompt="$",block=false,label="Copy the command",onCopy,className}){
+  const [done,setDone]=useState(false);
+  const timer=useRef(null);
+  useEffect(()=>()=>clearTimeout(timer.current),[]);
+  if(!cmd)return null;
+  const copy=(e)=>{e.stopPropagation();copyText(cmd);setDone(true);onCopy&&onCopy(cmd);clearTimeout(timer.current);timer.current=setTimeout(()=>setDone(false),1200);};
+  return h("button",{type:"button",className:cx("apm-command",block&&"apm-command-block",done&&"is-done",className),title:label,"aria-label":label+": "+cmd,onClick:copy},
+    h("span",{className:"apm-command-prompt","aria-hidden":true},prompt),
+    h("span",{className:"apm-command-text"},cmd),
+    h(Icon,{name:done?"check":"copy",size:11}));
+}
+
 const Button=forwardRef(function Button({variant="secondary",size="md",icon,iconRight,kbd,loading=false,block=false,href,type="button",className,children,disabled,...rest},ref){
   const iconSize=size==="sm"?14:16;
   const cls=cx("apm-btn","apm-btn-"+variant,size!=="md"&&"apm-btn-"+size,block&&"apm-btn-block",loading&&"is-loading",className);
@@ -149,10 +161,43 @@ function Badge({tone="neutral",icon,dot=false,size="md",outline=false,children,c
   return h("span",{className:cx("apm-badge",tone!=="neutral"&&"apm-badge-"+tone,dot&&"apm-badge-dot",size==="sm"&&"apm-badge-sm",outline&&"apm-badge-outline",className)},icon&&h(Icon,{name:icon,size:12,strokeWidth:2}),children);
 }
 
-function ItemIcon({name="",letter,icon,size="md",solid=false,className,style}){
+const LOGO_LOOK=new Map();
+function logoLook(img){
+  const key=img.currentSrc||img.src;
+  if(LOGO_LOOK.has(key))return LOGO_LOOK.get(key);
+  let look="";
+  try{
+    const n=32,c=document.createElement("canvas");
+    c.width=n;c.height=n;
+    const g=c.getContext("2d",{willReadFrequently:true});
+    g.drawImage(img,0,0,n,n);
+    const d=g.getImageData(0,0,n,n).data;
+    const at=(x,y)=>d[(y*n+x)*4+3];
+    const corners=[at(1,1),at(n-2,1),at(1,n-2),at(n-2,n-2)];
+    if(corners.every((a)=>a>230))look="is-opaque";
+    else{
+      let ink=0,lum=0,sat=0;
+      for(let i=0;i<d.length;i+=4){
+        const a=d[i+3]/255;
+        if(a<.5)continue;
+        const r=d[i],gg=d[i+1],b=d[i+2],mx=Math.max(r,gg,b),mn=Math.min(r,gg,b);
+        ink++;lum+=(.2126*r+.7152*gg+.0722*b)/255;sat+=mx?(mx-mn)/mx:0;
+      }
+      if(ink&&lum/ink<.3&&sat/ink<.35)look="is-ink";
+    }
+  }catch(e){look="";}
+  LOGO_LOOK.set(key,look);
+  return look;
+}
+
+function ItemIcon({name="",letter,icon,src,size="md",solid=false,className,style}){
+  const [broken,setBroken]=useState(null);
+  const [look,setLook]=useState(()=>(src&&LOGO_LOOK.get(src))||"");
+  useEffect(()=>{setLook((src&&LOGO_LOOK.get(src))||"");},[src]);
   const ch=letter||(String(name).trim().charAt(0)||"?").toUpperCase();
   const px={sm:12,md:16,lg:26}[size]||16;
-  return h("span",{className:cx("apm-tile","apm-tile-"+size,solid&&"apm-tile-solid",className),style,"aria-hidden":true},icon?h(Icon,{name:icon,size:px}):ch);
+  const img=src&&broken!==src;
+  return h("span",{className:cx("apm-tile","apm-tile-"+size,solid&&!img&&"apm-tile-solid",img&&"has-img",img&&look,className),style,"aria-hidden":true},img?h("img",{className:"apm-tile-img",src,alt:"",draggable:false,decoding:"async",onLoad:(e)=>setLook(logoLook(e.currentTarget)),onError:()=>setBroken(src)}):icon?h(Icon,{name:icon,size:px}):ch);
 }
 
 function NavItem({icon,label,count,badge,kbd,active=false,href,onClick,className,children}){
@@ -163,11 +208,11 @@ function NavItem({icon,label,count,badge,kbd,active=false,href,onClick,className
   return h("button",{type:"button",className:cls,onClick,"aria-current":active?"page":undefined},kids);
 }
 
-function ItemRow({title,subtitle,letter,icon,time,favorite=false,alert,mono=false,active=false,solid=false,onClick,href,className}){
+function ItemRow({title,subtitle,letter,icon,src,time,favorite=false,alert,mono=false,active=false,solid=false,onClick,href,className}){
   const flags=[];
   if(alert)flags.push(h("span",{key:"a",className:"is-"+(alert==="danger"?"danger":"warning"),title:alert==="danger"?"Compromised":"Needs attention"},h(Icon,{name:"triangle-alert",size:13,strokeWidth:2})));
   if(favorite)flags.push(h("span",{key:"f",title:"Favorite"},h(Icon,{name:"star",size:13,filled:true,strokeWidth:1.5})));
-  const kids=[h(ItemIcon,{key:"t",name:title,letter,icon,solid}),
+  const kids=[h(ItemIcon,{key:"t",name:title,letter,icon,src,solid}),
     h("span",{key:"x",className:"apm-row-text"},h("span",{className:"apm-row-title"},title),subtitle&&h("span",{className:cx("apm-row-sub",mono&&"is-mono")},subtitle)),
     h("span",{key:"m",className:"apm-row-meta"},time&&h("span",{className:"apm-row-time"},time),h("span",{className:"apm-row-flags"},flags))];
   const cls=cx("apm-row",active&&"is-active",className);
@@ -374,13 +419,13 @@ function Menu({trigger,items,align="start",side="bottom",width=224,open:ctrl,onO
     open&&h(MenuList,{items,label,autoFocus:true,onSelect:()=>set(false),className:cx("apm-menu-pop","is-"+align,"is-"+side),style:{width}}));
 }
 
-const Select=forwardRef(function Select({label,hint,options=[],value,defaultValue,onChange,size="md",icon,id,className,style,disabled},ref){
+const Select=forwardRef(function Select({label,hint,options=[],value,defaultValue,onChange,size="md",icon,id,className,style,disabled,ariaLabel},ref){
   const fid=id||"apm-sel-"+safeId(useId());
   return h("div",{className:cx("apm-field",className),style},
     label&&h("label",{className:"apm-label",htmlFor:fid},label),
     h("div",{className:cx("apm-input","apm-select",size!=="md"&&"apm-input-"+size),"data-disabled":disabled?"true":undefined},
       icon&&h(Icon,{name:icon,size:16}),
-      h("select",{ref,id:fid,value,defaultValue,disabled,onChange:(e)=>onChange&&onChange(e.target.value,e)},
+      h("select",{ref,id:fid,value,defaultValue,disabled,"aria-label":ariaLabel,onChange:(e)=>onChange&&onChange(e.target.value,e)},
         options.map(o=>{const x=typeof o==="string"?{value:o,label:o}:o;return h("option",{key:x.value,value:x.value},x.label);})),
       h(Icon,{name:"chevrons-up-down",size:14,className:"apm-select-chev"})),
     hint&&h(Hint,null,hint));
@@ -501,6 +546,115 @@ function CommandMenu({open=true,onClose,groups=[],placeholder="Search items and 
       h("span",{style:{marginLeft:"auto"}},h(Mark,{size:14}),"APM")));
 }
 
-const APM={Icon,Mark,Spinner,Kbd,Button,IconButton,Tooltip,Input,PasswordInput,SearchField,Select,Textarea,Checkbox,Switch,SegmentedControl,Tabs,Slider,Badge,ItemIcon,Avatar,NavItem,ItemRow,FieldGroup,SecretField,SettingRow,TotpCode,StrengthMeter,Progress,Callout,EmptyState,Toast,Dialog,Menu,MenuList,CommandMenu,icons:Object.keys(ICONS),totp,copyText};
+function fmtBytes(n){if(n==null||n==="")return "";n=Number(n);return n<1024?n+" B":n<1048576?Math.round(n/1024)+" KB":(n/1048576).toFixed(1)+" MB";}
+
+function FileDrop({file,title="Drop a file here or choose one",hint,icon,busy=false,disabled=false,accept,onChoose,onDrop,className}){
+  const [over,setOver]=useState(false);
+  const depth=useRef(0);
+  const inert=disabled||busy;
+  const pick=()=>{if(!inert&&onChoose)onChoose();};
+  const detail=file?(file.detail!=null?file.detail:[fmtBytes(file.size),"click to choose another"].filter(Boolean).join(" · ")):hint;
+  return h("div",{className:cx("apm-drop",over&&"is-over",file&&"has-file",busy&&"is-busy",disabled&&"is-disabled",className),role:"button",tabIndex:inert?-1:0,"aria-disabled":inert||undefined,"aria-busy":busy||undefined,
+    onClick:pick,
+    onKeyDown:(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}},
+    onDragEnter:(e)=>{if(inert)return;e.preventDefault();depth.current++;setOver(true);},
+    onDragOver:(e)=>{if(inert)return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="copy";},
+    onDragLeave:()=>{depth.current=Math.max(0,depth.current-1);if(!depth.current)setOver(false);},
+    onDrop:(e)=>{e.preventDefault();depth.current=0;setOver(false);if(inert)return;const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f&&(!accept||accepts(f,accept)))onDrop&&onDrop(f);}},
+    h("span",{className:"apm-drop-icon"},busy?h(Spinner,{size:16}):h(Icon,{name:icon||(file?"file":"upload"),size:18})),
+    h("span",{className:"apm-drop-text"},h("b",null,file?file.name:title),detail&&h("span",null,detail)));
+}
+function accepts(f,accept){
+  const list=String(accept).split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+  if(!list.length)return true;
+  const n=(f.name||"").toLowerCase(),t=(f.type||"").toLowerCase();
+  return list.some(a=>a==="*"||(a.startsWith(".")?n.endsWith(a):a.endsWith("/*")?t.startsWith(a.slice(0,-1)):t===a));
+}
+
+function Stepper({items=[],value,onChange,label="Progress",className}){
+  const norm=items.map(o=>typeof o==="string"?{value:o,label:o}:o);
+  const cur=Math.max(0,norm.findIndex(o=>o.value===value));
+  return h("ol",{className:cx("apm-steps",className),"aria-label":label},
+    norm.map((o,i)=>{
+      const state=i<cur?"done":i===cur?"current":"todo";
+      const inner=[h("span",{key:"n",className:"apm-steps-dot","aria-hidden":true},state==="done"?h(Icon,{name:"check",size:12,strokeWidth:2.5}):i+1),h("span",{key:"l",className:"apm-steps-label"},o.label)];
+      return h("li",{key:o.value,className:cx("apm-steps-item","is-"+state),"aria-current":state==="current"?"step":undefined},
+        state==="done"&&onChange?h("button",{type:"button",onClick:()=>onChange(o.value)},inner):h("span",{className:"apm-steps-static"},inner),
+        i<norm.length-1&&h("span",{className:"apm-steps-line","aria-hidden":true}));
+    }));
+}
+
+function StatGroup({items=[],label,className}){
+  return h("div",{className:cx("apm-stats",className),role:"group","aria-label":label},
+    items.map((s,i)=>{
+      const kids=[h("span",{key:"v",className:"apm-stat-value"},s.icon&&h(Icon,{name:s.icon,size:14}),s.value),h("span",{key:"l",className:"apm-stat-label"},s.label)];
+      const cls=cx("apm-stat",s.tone&&"is-"+s.tone,s.active&&"is-active",s.onClick&&"is-button");
+      return s.onClick?h("button",{key:s.key||s.label||i,type:"button",className:cls,"aria-pressed":s.active?"true":"false",onClick:s.onClick},kids):h("div",{key:s.key||s.label||i,className:cls},kids);
+    }));
+}
+
+const MASK="••••••••";
+function CompareTable({columns={left:"Current",right:"Incoming"},rows=[],className,revealAll=false}){
+  const [shown,setShown]=useState({});
+  const cell=(r,side,v)=>{
+    const empty=v==null||v==="";
+    if(empty)return h("span",{className:"apm-cmp-empty"},"—");
+    const masked=r.secret&&!(revealAll||shown[r.key]);
+    return h("span",{className:cx("apm-cmp-val",(r.mono||r.secret)&&"is-mono",masked&&"is-masked")},masked?MASK:String(v));
+  };
+  const hasSecret=rows.some(r=>r.secret);
+  return h("div",{className:cx("apm-cmp",className),role:"table"},
+    h("div",{className:"apm-cmp-row is-head",role:"row"},h("span",{role:"columnheader"},"Field"),h("span",{role:"columnheader"},columns.left),h("span",{role:"columnheader"},columns.right),hasSecret&&h("span",{"aria-hidden":true})),
+    rows.map(r=>h("div",{key:r.key,className:cx("apm-cmp-row",r.kind&&r.kind!=="same"&&"is-"+r.kind),role:"row"},
+      h("span",{className:"apm-cmp-label",role:"rowheader"},r.label,r.kind&&r.kind!=="same"&&h("span",{className:"apm-cmp-kind"},{changed:"Changed",added:"Added",removed:"Removed"}[r.kind]||"")),
+      h("span",{role:"cell"},cell(r,"left",r.left)),
+      h("span",{role:"cell"},cell(r,"right",r.right)),
+      hasSecret&&h("span",{className:"apm-cmp-act"},r.secret&&!revealAll&&h(IconButton,{icon:shown[r.key]?"eye-off":"eye",size:"xs",label:(shown[r.key]?"Hide ":"Show ")+String(r.label).toLowerCase(),onClick:()=>setShown(Object.assign({},shown,{[r.key]:!shown[r.key]}))})))));
+}
+
+function ChoiceGroup({value,onChange,label,columns,children,className}){
+  const ref=useRef(null);
+  const onKey=(e)=>{
+    if(!["ArrowRight","ArrowDown","ArrowLeft","ArrowUp"].includes(e.key))return;
+    const els=Array.from(ref.current.querySelectorAll('[role="radio"]:not([aria-disabled="true"])'));
+    const i=els.indexOf(document.activeElement);if(i<0)return;
+    e.preventDefault();
+    const n=els[(i+(e.key==="ArrowRight"||e.key==="ArrowDown"?1:-1)+els.length)%els.length];
+    n.focus();n.click();
+  };
+  const all=React.Children.toArray(children);
+  const sel=(c)=>c.props.selected!=null?c.props.selected:value===c.props.value;
+  const any=all.some(c=>c&&c.type===ChoiceTile&&sel(c));
+  const first=all.findIndex(c=>c&&c.type===ChoiceTile&&!c.props.disabled);
+  const kids=all.map((c,i)=>c&&c.type===ChoiceTile?React.cloneElement(c,{selected:sel(c),onSelect:c.props.onSelect||(()=>onChange&&onChange(c.props.value)),_group:true,_tab:sel(c)||(!any&&i===first)}):c);
+  return h("div",{ref,className:cx("apm-choices",className),role:"radiogroup","aria-label":label,onKeyDown:onKey,style:columns?{"--cols":columns}:undefined},kids);
+}
+
+function ChoiceTile({value,icon,tile,title,description,meta,selected=false,disabled=false,onSelect,className,_group,_tab}){
+  return h("button",{type:"button",role:_group?"radio":undefined,"aria-checked":_group?(selected?"true":"false"):undefined,"aria-pressed":_group?undefined:(selected?"true":"false"),"aria-disabled":disabled||undefined,disabled,tabIndex:_group&&!_tab?-1:0,
+    className:cx("apm-choice",selected&&"is-selected",disabled&&"is-disabled",className),onClick:()=>{if(!disabled&&onSelect)onSelect(value);}},
+    tile?h(ItemIcon,Object.assign({size:"md"},tile)):icon&&h("span",{className:"apm-choice-icon"},h(Icon,{name:icon,size:16})),
+    h("span",{className:"apm-choice-text"},h("span",{className:"apm-choice-title"},title),description&&h("span",{className:"apm-choice-desc"},description),meta&&h("span",{className:"apm-choice-meta"},meta)),
+    h("span",{className:"apm-choice-mark","aria-hidden":true},selected&&h(Icon,{name:"check",size:12,strokeWidth:2.75})));
+}
+
+function ReviewRow({checked,onCheck,disabled=false,name,letter,icon,src,solid,title,subtitle,badges,trailing,tone,expanded=false,onToggle,children,className}){
+  const fid="apm-rv-"+safeId(useId());
+  const canExpand=!!(onToggle&&children!=null&&children!==false);
+  return h("div",{className:cx("apm-review",tone&&"is-"+tone,expanded&&"is-expanded",disabled&&"is-disabled",className)},
+    h("div",{className:"apm-review-main"},
+      onCheck!==undefined&&h("label",{className:"apm-check apm-review-check",htmlFor:fid},
+        h("input",{type:"checkbox",id:fid,checked:!!checked,disabled,onChange:(e)=>onCheck&&onCheck(e.target.checked),"aria-label":"Include "+title}),
+        h("span",{className:"apm-check-box","aria-hidden":true},h(Icon,{name:"check",size:12,strokeWidth:2.75}))),
+      h(ItemIcon,{name:name!=null?name:title,letter,icon,src,solid,size:"sm"}),
+      h(canExpand?"button":"span",Object.assign({className:"apm-review-text"},canExpand?{type:"button",onClick:onToggle,"aria-expanded":expanded?"true":"false"}:{}),
+        h("span",{className:"apm-review-title"},title),subtitle&&h("span",{className:"apm-review-sub"},subtitle)),
+      badges&&h("span",{className:"apm-review-badges"},badges),
+      trailing&&h("span",{className:"apm-review-trail"},trailing),
+      canExpand?h(IconButton,{icon:expanded?"chevron-up":"chevron-down",size:"xs",label:expanded?"Hide details":"Show details",onClick:onToggle,tip:false}):(trailing||badges)&&h("span",{className:"apm-review-spacer","aria-hidden":true})),
+    expanded&&canExpand&&h("div",{className:"apm-review-body"},children));
+}
+
+const APM={Icon,Mark,Spinner,Kbd,Command,Button,IconButton,Tooltip,Input,PasswordInput,SearchField,Select,Textarea,Checkbox,Switch,SegmentedControl,Tabs,Slider,Badge,ItemIcon,Avatar,NavItem,ItemRow,FieldGroup,SecretField,SettingRow,TotpCode,StrengthMeter,Progress,Callout,EmptyState,Toast,Dialog,Menu,MenuList,CommandMenu,FileDrop,Stepper,StatGroup,CompareTable,ChoiceGroup,ChoiceTile,ReviewRow,icons:Object.keys(ICONS),totp,copyText};
 window.APM=Object.assign(window.APM||{},APM);
 })();

@@ -14,6 +14,8 @@ export declare function Spinner(props: SpinnerProps): React.ReactElement;
 
 export interface KbdProps { keys?: string[]; children?: string; className?: string }
 export declare function Kbd(props: KbdProps): React.ReactElement;
+export interface CommandProps { cmd: string; prompt?: string; block?: boolean; label?: string; onCopy?: (cmd: string) => void; className?: string }
+export declare function Command(props: CommandProps): React.ReactElement | null;
 
 export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'> { variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'md' | 'lg'; icon?: IconName; iconRight?: IconName; kbd?: string | string[]; loading?: boolean; block?: boolean; href?: string; type?: 'button' | 'submit' | 'reset' }
 export declare const Button: React.ForwardRefExoticComponent<ButtonProps & React.RefAttributes<HTMLButtonElement | HTMLAnchorElement>>;
@@ -40,13 +42,13 @@ export declare function SegmentedControl(props: SegmentedControlProps): React.Re
 export interface BadgeProps { tone?: Tone; icon?: IconName; dot?: boolean; size?: 'sm' | 'md'; outline?: boolean; children?: React.ReactNode; className?: string }
 export declare function Badge(props: BadgeProps): React.ReactElement;
 
-export interface ItemIconProps { name?: string; letter?: string; icon?: IconName; size?: 'sm' | 'md' | 'lg'; solid?: boolean; className?: string; style?: React.CSSProperties }
+export interface ItemIconProps { name?: string; letter?: string; icon?: IconName; src?: string; size?: 'sm' | 'md' | 'lg'; solid?: boolean; className?: string; style?: React.CSSProperties }
 export declare function ItemIcon(props: ItemIconProps): React.ReactElement;
 
 export interface NavItemProps { icon?: IconName; label: React.ReactNode; count?: React.ReactNode; badge?: { tone?: Tone; text: string } | null; kbd?: string | string[]; active?: boolean; href?: string; onClick?: () => void; className?: string }
 export declare function NavItem(props: NavItemProps): React.ReactElement;
 
-export interface ItemRowProps { title: string; subtitle?: string; letter?: string; icon?: IconName; time?: string; favorite?: boolean; alert?: 'warning' | 'danger'; mono?: boolean; active?: boolean; solid?: boolean; onClick?: () => void; href?: string; className?: string }
+export interface ItemRowProps { title: string; subtitle?: string; letter?: string; icon?: IconName; src?: string; time?: string; favorite?: boolean; alert?: 'warning' | 'danger'; mono?: boolean; active?: boolean; solid?: boolean; onClick?: () => void; href?: string; className?: string }
 export declare function ItemRow(props: ItemRowProps): React.ReactElement;
 
 export interface FieldGroupProps { children?: React.ReactNode; className?: string; style?: React.CSSProperties }
@@ -77,7 +79,7 @@ export interface MenuProps { trigger: React.ReactElement; items: MenuEntry[]; al
 export declare function Menu(props: MenuProps): React.ReactElement;
 
 export interface SelectOption { value: string; label: React.ReactNode }
-export interface SelectProps { label?: React.ReactNode; hint?: React.ReactNode; options: Array<string | SelectOption>; value?: string; defaultValue?: string; onChange?: (value: string, event: React.ChangeEvent<HTMLSelectElement>) => void; size?: 'sm' | 'md' | 'lg'; icon?: IconName; id?: string; disabled?: boolean; className?: string; style?: React.CSSProperties }
+export interface SelectProps { label?: React.ReactNode; hint?: React.ReactNode; options: Array<string | SelectOption>; value?: string; defaultValue?: string; onChange?: (value: string, event: React.ChangeEvent<HTMLSelectElement>) => void; size?: 'sm' | 'md' | 'lg'; icon?: IconName; id?: string; disabled?: boolean; ariaLabel?: string; className?: string; style?: React.CSSProperties }
 export declare const Select: React.ForwardRefExoticComponent<SelectProps & React.RefAttributes<HTMLSelectElement>>;
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> { label?: React.ReactNode; hint?: React.ReactNode; invalid?: boolean; mono?: boolean }
@@ -113,11 +115,35 @@ export interface CommandGroup { label: string; items: CommandItem[]; limit?: num
 export interface CommandMenuProps { open?: boolean; onClose?: () => void; groups: CommandGroup[]; placeholder?: string; layer?: 'portal' | 'contained' | 'none'; defaultQuery?: string }
 export declare function CommandMenu(props: CommandMenuProps): React.ReactElement | null;
 
+export interface FileDropFile { name: string; size?: number; detail?: React.ReactNode }
+export interface FileDropProps { file?: FileDropFile | null; title?: React.ReactNode; hint?: React.ReactNode; icon?: IconName; busy?: boolean; disabled?: boolean; accept?: string; onChoose?: () => void; onDrop?: (file: File) => void; className?: string }
+export declare function FileDrop(props: FileDropProps): React.ReactElement;
+
+export interface StepItem { value: string; label: React.ReactNode }
+export interface StepperProps { items: Array<string | StepItem>; value?: string; onChange?: (value: string) => void; label?: string; className?: string }
+export declare function Stepper(props: StepperProps): React.ReactElement;
+
+export interface StatItem { key?: string; label: React.ReactNode; value: React.ReactNode; tone?: Tone; icon?: IconName; active?: boolean; onClick?: () => void }
+export interface StatGroupProps { items: StatItem[]; label?: string; className?: string }
+export declare function StatGroup(props: StatGroupProps): React.ReactElement;
+
+export interface CompareRow { key: string; label: React.ReactNode; left?: React.ReactNode; right?: React.ReactNode; secret?: boolean; mono?: boolean; kind?: 'same' | 'changed' | 'added' | 'removed' }
+export interface CompareTableProps { columns?: { left: React.ReactNode; right: React.ReactNode }; rows: CompareRow[]; revealAll?: boolean; className?: string }
+export declare function CompareTable(props: CompareTableProps): React.ReactElement;
+
+export interface ChoiceGroupProps { value?: string; onChange?: (value: string) => void; label?: string; columns?: number; children?: React.ReactNode; className?: string }
+export declare function ChoiceGroup(props: ChoiceGroupProps): React.ReactElement;
+export interface ChoiceTileProps { value?: string; icon?: IconName; tile?: ItemIconProps; title: React.ReactNode; description?: React.ReactNode; meta?: React.ReactNode; selected?: boolean; disabled?: boolean; onSelect?: (value?: string) => void; className?: string }
+export declare function ChoiceTile(props: ChoiceTileProps): React.ReactElement;
+
+export interface ReviewRowProps { title: string; subtitle?: React.ReactNode; name?: string; letter?: string; icon?: IconName; src?: string; solid?: boolean; checked?: boolean; onCheck?: (checked: boolean) => void; disabled?: boolean; badges?: React.ReactNode; trailing?: React.ReactNode; tone?: 'warning' | 'danger'; expanded?: boolean; onToggle?: () => void; children?: React.ReactNode; className?: string }
+export declare function ReviewRow(props: ReviewRowProps): React.ReactElement;
+
 export declare function totp(secret: string, period?: number, digits?: number, at?: number): Promise<string>;
 export declare function copyText(text: string): Promise<void>;
 
 declare global {
   interface Window {
-    APM: { Icon: typeof Icon; Mark: typeof Mark; Spinner: typeof Spinner; Kbd: typeof Kbd; Button: typeof Button; IconButton: typeof IconButton; Tooltip: typeof Tooltip; Input: typeof Input; PasswordInput: typeof PasswordInput; SearchField: typeof SearchField; Select: typeof Select; Textarea: typeof Textarea; Checkbox: typeof Checkbox; Switch: typeof Switch; SegmentedControl: typeof SegmentedControl; Tabs: typeof Tabs; Slider: typeof Slider; Badge: typeof Badge; ItemIcon: typeof ItemIcon; Avatar: typeof Avatar; NavItem: typeof NavItem; ItemRow: typeof ItemRow; FieldGroup: typeof FieldGroup; SecretField: typeof SecretField; SettingRow: typeof SettingRow; TotpCode: typeof TotpCode; StrengthMeter: typeof StrengthMeter; Progress: typeof Progress; Callout: typeof Callout; EmptyState: typeof EmptyState; Toast: typeof Toast; Dialog: typeof Dialog; Menu: typeof Menu; MenuList: typeof MenuList; CommandMenu: typeof CommandMenu; icons: IconName[]; totp: typeof totp; copyText: typeof copyText };
+    APM: { Icon: typeof Icon; Mark: typeof Mark; Spinner: typeof Spinner; Kbd: typeof Kbd; Command: typeof Command; Button: typeof Button; IconButton: typeof IconButton; Tooltip: typeof Tooltip; Input: typeof Input; PasswordInput: typeof PasswordInput; SearchField: typeof SearchField; Select: typeof Select; Textarea: typeof Textarea; Checkbox: typeof Checkbox; Switch: typeof Switch; SegmentedControl: typeof SegmentedControl; Tabs: typeof Tabs; Slider: typeof Slider; Badge: typeof Badge; ItemIcon: typeof ItemIcon; Avatar: typeof Avatar; NavItem: typeof NavItem; ItemRow: typeof ItemRow; FieldGroup: typeof FieldGroup; SecretField: typeof SecretField; SettingRow: typeof SettingRow; TotpCode: typeof TotpCode; StrengthMeter: typeof StrengthMeter; Progress: typeof Progress; Callout: typeof Callout; EmptyState: typeof EmptyState; Toast: typeof Toast; Dialog: typeof Dialog; Menu: typeof Menu; MenuList: typeof MenuList; CommandMenu: typeof CommandMenu; FileDrop: typeof FileDrop; Stepper: typeof Stepper; StatGroup: typeof StatGroup; CompareTable: typeof CompareTable; ChoiceGroup: typeof ChoiceGroup; ChoiceTile: typeof ChoiceTile; ReviewRow: typeof ReviewRow; icons: IconName[]; totp: typeof totp; copyText: typeof copyText };
   }
 }

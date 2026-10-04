@@ -7,10 +7,9 @@ import { PROFILES, CIPHERS, describe } from "../lib/profiles.js";
 import { activePolicy } from "../lib/types.js";
 import { NewPasswordFields, passwordOk } from "../screens/auth.jsx";
 import { Choice } from "../ui/kit.jsx";
-import { Card, Head, Status } from "./common.jsx";
+import { Card, Head, Status, lockMinutes, lockSummary } from "./common.jsx";
 
 const cx = U.cx;
-const MINUTES = (list) => list.map((m) => ({ value: String(m), label: m === 0 ? "Never" : m < 60 ? m + " minutes" : m / 60 + " hour" + (m === 60 ? "" : "s") }));
 
 export const profileOf = (meta) => {
   if (meta.profile !== "custom" && PROFILES[meta.profile]) return Object.assign({}, PROFILES[meta.profile], { cipher: meta.cipher || PROFILES[meta.profile].cipher });
@@ -36,7 +35,7 @@ export function Security() {
   };
   return (
     <>
-      <Head title="Security" description="How the vault is unlocked, how long it stays open and how it is encrypted." />
+      <Head title="Security" description="How the vault is unlocked, when it locks and how it is encrypted." />
       <Card title="Master password" description="The only key to this vault. APM cannot see it or reset it without a recovery method."
         footNote={lastPw ? "Last changed " + U.agoLong(lastPw.ts) : m.created ? "Not changed since the vault was created " + U.date(m.created) : "Change it any time. Recovery methods keep working."}
         cli="pm auth change" footer={<A.Button size="sm" icon="key-round" onClick={() => ui.open("change-password")} disabled={disk.readonly}>Change master password</A.Button>} />
@@ -45,10 +44,13 @@ export function Security() {
           <A.Switch label="Touch ID" checked={!!(tid.configured || disk.auth.touchId)} disabled={!tid.available} onChange={touch} />
         </A.SettingRow>
       </Card>
-      <Card title="Auto-lock" description="The vault key is wiped from memory when the vault locks." flush>
-        <A.SettingRow title="Lock after inactivity" description="No keyboard or pointer input for this long." htmlFor="idle"><A.Select id="idle" size="sm" value={String(st.inactivity)} onChange={(v) => act.settings({ inactivity: v })} options={MINUTES([1, 5, 15, 30, 60])} /></A.SettingRow>
-        <A.SettingRow title="Maximum session" description="Locks even while you are using it, then asks for your password again." htmlFor="max"><A.Select id="max" size="sm" value={String(st.sessionTimeout)} onChange={(v) => act.settings({ sessionTimeout: v })} options={MINUTES([15, 60, 240, 480, 1440])} /></A.SettingRow>
-        <A.SettingRow title="Lock when the Mac sleeps" description="Also locks when the screen locks or the lid closes."><A.Switch label="Lock on sleep" checked={!!st.lockOnSleep} onChange={(v) => act.settings({ lockOnSleep: v })} /></A.SettingRow>
+      <Card flush cli="pm autolock">
+        <A.SettingRow icon="timer" title="Auto-lock" description={lockSummary(st) + " Set it for the app, pm and the browser extension in Sessions."}>
+          {!lockMinutes(st.inactivity) && !lockMinutes(st.sessionTimeout) && <A.Badge size="sm" tone="warning" icon="triangle-alert">{st.lockOnSleep ? "Only on sleep" : "Never locks"}</A.Badge>}
+          <A.Button size="sm" onClick={() => ui.go({ view: "settings", section: "sessions" })}>Change</A.Button>
+        </A.SettingRow>
+      </Card>
+      <Card title="Clipboard" flush>
         <A.SettingRow title="Clear clipboard" description="After you copy a secret. Only clears it if it still holds what APM copied." htmlFor="clip"><A.Select id="clip" size="sm" value={String(st.clipboard)} onChange={(v) => act.settings({ clipboard: v })} options={[{ value: "10", label: "After 10 seconds" }, { value: "30", label: "After 30 seconds" }, { value: "90", label: "After 90 seconds" }, { value: "0", label: "Never" }]} /></A.SettingRow>
       </Card>
       <Card title="Encryption profile" description="How hard each guess at your master password is. Higher profiles make every guess cost more memory and time, for you and for an attacker."

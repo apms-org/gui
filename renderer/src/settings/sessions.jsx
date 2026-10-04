@@ -3,44 +3,77 @@ import U from "../lib/util.js";
 import { useStore, A as act } from "../lib/store.js";
 import { ui } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
-import { Card, Head, Status, useNow, left } from "./common.jsx";
+import { Card, Head, Status, useNow, left, lockMinutes, lockLabel, lockOptions } from "./common.jsx";
 import { CodeBlock } from "../ui/kit.jsx";
 
 const cx = U.cx;
 const TTL = [{ value: "15", label: "15 minutes" }, { value: "60", label: "1 hour" }, { value: "240", label: "4 hours" }, { value: "1440", label: "24 hours" }];
+const IDLE = [1, 5, 15, 30, 60, 240, 0];
+const MAX = [15, 60, 240, 480, 1440, 0];
+const NEVER = {
+  inactivity: { title: "Never lock when idle?", description: "The vault stays unlocked while you are away from this Mac, until the maximum session ends, the Mac sleeps or you lock it. This applies to the app, pm and the browser extension.", confirm: "Never lock when idle" },
+  sessionTimeout: { title: "Remove the session limit?", description: "As long as you keep using it, the vault never asks for your master password again. Only inactivity, sleep or locking it yourself ends the session. This applies to the app, pm and the browser extension.", confirm: "Remove the limit" }
+};
+const until = (ts) => { const d = new Date(ts); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }); };
+
+function AutoLock() {
+  const disk = useStore((s) => s.disk);
+  const st = disk.settings;
+  const idle = lockMinutes(st.inactivity);
+  const max = lockMinutes(st.sessionTimeout);
+  const pick = (key, v) => {
+    if (v !== "0" || lockMinutes(st[key]) === 0) { act.settings({ [key]: v }); return; }
+    ui.open("confirm", Object.assign({ icon: "triangle-alert", tone: "warning", onConfirm: () => act.settings({ [key]: v }) }, NEVER[key]));
+  };
+  const warn = !idle && !max ? (st.lockOnSleep ? ["APM only locks when the Mac sleeps", "Until then the vault stays unlocked, even while you are away. Anyone who uses this Mac can read every secret in the app, in pm and in the browser."] : ["APM never locks on its own", "The vault stays unlocked until you lock it or quit APM. Anyone who uses this Mac in the meantime can read every secret in the app, in pm and in the browser."])
+    : !idle ? ["APM doesn't lock when you step away", "The vault stays unlocked for up to " + lockLabel(max) + " after you unlock it, even while you are away. Lock it with ⌘L before you leave this Mac."]
+    : !max ? ["Sessions have no time limit", "While you keep using it, the vault never asks for your master password again. It still locks after " + lockLabel(idle) + " idle" + (st.lockOnSleep ? " and when the Mac sleeps." : ".")]
+    : null;
+  return (
+    <Card title="Auto-lock" description="When the vault locks itself. Applies to this app, pm in your terminal and the browser extension. Locking wipes the key from memory." flush cli="pm autolock">
+      <A.SettingRow title="Lock after inactivity" description="No keyboard, pointer or browser activity for this long." htmlFor="idle"><A.Select id="idle" size="sm" value={String(idle)} onChange={(v) => pick("inactivity", v)} options={lockOptions(IDLE, st.inactivity)} disabled={disk.readonly} /></A.SettingRow>
+      <A.SettingRow title="Maximum session" description="Locks even while you are using it, then asks for your password again." htmlFor="max"><A.Select id="max" size="sm" value={String(max)} onChange={(v) => pick("sessionTimeout", v)} options={lockOptions(MAX, st.sessionTimeout)} disabled={disk.readonly} /></A.SettingRow>
+      <A.SettingRow title="Lock when the Mac sleeps" description="Also when the screen locks or the lid closes."><A.Switch label="Lock on sleep" checked={!!st.lockOnSleep} onChange={(v) => act.settings({ lockOnSleep: v })} disabled={disk.readonly} /></A.SettingRow>
+      {warn && <div className="card-pad"><A.Callout tone="warning" icon="triangle-alert" title={warn[0]}>{warn[1]}</A.Callout></div>}
+    </Card>
+  );
+}
 
 export function Sessions() {
   const disk = useStore((s) => s.disk);
   const s = useStore((x) => x.session);
   const now = useNow(1000);
   const st = disk.settings;
-  const idleAt = s.lastActive + Number(st.inactivity) * 60000;
-  const maxAt = s.unlockedAt + Number(st.sessionTimeout) * 60000;
-  const lockAt = Math.min(idleAt, maxAt);
-  const total = Math.min(Number(st.inactivity), Number(st.sessionTimeout)) * 60000;
+  const idle = lockMinutes(st.inactivity);
+  const max = lockMinutes(st.sessionTimeout);
+  const ends = [idle && s.lastActive + idle * 60000, max && s.unlockedAt + max * 60000].filter(Boolean);
+  const lockAt = ends.length ? Math.min.apply(null, ends) : 0;
+  const total = Math.min.apply(null, [idle, max].filter(Boolean).concat([Infinity])) * 60000;
+  const frac = lockAt ? Math.max(0, Math.min(1, (lockAt - now) / total)) : 1;
   const live = disk.sessions.filter((x) => !x.revoked && x.expires > now);
   const dead = disk.sessions.filter((x) => x.revoked || x.expires <= now);
   const revoke = async (x) => { const r = await act.sessionRevoke(x.id); if (r.ok) ui.toast({ title: "Revoked “" + (x.label || x.id) + "”", tone: "neutral" }); };
   const cli = disk.cliSession || {};
   return (
     <>
-      <Head title="Sessions" description="How long this unlock lasts, and short-lived sessions you hand to scripts, CI and agents." cli="pm session list" />
+      <Head title="Sessions" description="When the vault locks itself, how long this unlock lasts, and short-lived sessions you hand to scripts, CI and agents." cli="pm session list" />
+      <AutoLock />
       <Card title="This session" cli={s.readonly ? "pm readonly" : "pm lock"}
         footer={<>{s.readonly ? <A.Button size="sm" onClick={async () => { const r = await act.endReadonly(); if (r.ok) ui.toast({ title: "Editing is back on" }); }}>End read-only</A.Button> : <A.Menu align="end" width={200} trigger={<A.Button size="sm" icon="eye" iconRight="chevron-down">Read-only</A.Button>} items={[{ section: "Stay read-only for" }].concat([15, 30, 60, 240].map((m) => ({ label: m < 60 ? m + " minutes" : m / 60 + " hour" + (m === 60 ? "" : "s"), onSelect: async () => { const r = await act.readonly(m); if (r.ok) ui.toast({ title: "Read-only for " + (m < 60 ? m + " minutes" : m / 60 + "h"), description: "Nothing can be added, edited or deleted.", icon: "eye" }); } })))} />}<A.Button size="sm" variant="primary" icon="lock" kbd={["⌘", "L"]} onClick={() => act.lock("manual")}>Lock now</A.Button></>}>
         <div className="session-now">
           <div className="session-ring">
-            <svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" className="ring-track" /><circle cx="22" cy="22" r="19" className="ring-arc" strokeDasharray={119.4} strokeDashoffset={119.4 * (1 - Math.max(0, (lockAt - now) / total))} /></svg>
+            <svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" className="ring-track" /><circle cx="22" cy="22" r="19" className="ring-arc" strokeDasharray={119.4} strokeDashoffset={119.4 * (1 - frac)} /></svg>
             <A.Icon name={s.readonly ? "eye" : "lock-open"} size={16} />
           </div>
           <div className="session-facts">
             <div><span className="muted small">Unlocked</span><b>{U.agoLong(s.unlockedAt)}</b></div>
-            <div><span className="muted small">Locks in</span><b className="mono">{left(lockAt - now).replace(" left", "")}</b></div>
+            <div><span className="muted small">Locks in</span><b className={lockAt ? "mono" : undefined}>{lockAt ? left(lockAt - now).replace(" left", "") : st.lockOnSleep ? "On sleep" : "Never"}</b></div>
             <div><span className="muted small">Mode</span><b>{s.readonly ? (s.readonlyUntil ? "Read-only until " + new Date(s.readonlyUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Read-only") : "Full access"}</b></div>
           </div>
         </div>
       </Card>
       <Card title="Terminal session" description="Unlocking here also unlocks pm in your terminal, and locking here locks it. Both use the same encrypted session file." flush cli="pm unlock">
-        <A.SettingRow icon="terminal" title={cli.active ? "pm is unlocked" : "pm is locked"} description={cli.active ? (cli.expires ? "Until " + new Date(cli.expires).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Active") + (cli.inactivity ? ", or after " + Math.round(cli.inactivity / 60000) + " minutes idle" : "") + (cli.readonly ? " · read-only" : "") : "pm asks for your master password the next time you run it."}>
+        <A.SettingRow icon="terminal" title={cli.active ? "pm is unlocked" : "pm is locked"} description={cli.active ? (cli.expires ? "Until " + until(cli.expires) : "No time limit") + (cli.inactivity ? ", or after " + Math.round(cli.inactivity / 60000) + " minutes idle" : "") + (cli.readonly ? " · read-only" : "") : "pm asks for your master password the next time you run it."}>
           {cli.active ? <Status tone="success">Active</Status> : <Status tone="neutral">Locked</Status>}
         </A.SettingRow>
       </Card>

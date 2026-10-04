@@ -1,10 +1,11 @@
 import { A } from "../lib/ds.js";
 import U from "../lib/util.js";
-import { useStore, store, randHex } from "../lib/store.js";
+import { useStore, store, randHex, A as act } from "../lib/store.js";
 import { ui } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
 import { KEYS, PRESETS, tokensFor, contrast } from "../lib/themes.js";
 import { Card, Head } from "./common.jsx";
+import { iconsEnabled, clearIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 
@@ -76,7 +77,28 @@ export function Appearance({ theme }) {
         <A.SettingRow title="Show pm commands" description="Small command chips next to settings and actions, so you can do the same thing from the terminal. Click one to copy it."><A.Switch label="Show pm commands" checked={prefs.showCli !== false} onChange={(v) => store.savePrefs({ showCli: v })} /></A.SettingRow>
         <A.SettingRow title="Commit receipts" description="Show the History commit for each change in the confirmation toast."><A.Switch label="Commit receipts" checked={prefs.receipts !== false} onChange={(v) => store.savePrefs({ receipts: v })} /></A.SettingRow>
       </Card>
+      <SiteIcons />
     </>
+  );
+}
+
+function SiteIcons() {
+  const disk = useStore((s) => s.disk);
+  const [busy, setBusy] = React.useState(false);
+  const on = iconsEnabled();
+  const clear = async () => {
+    setBusy(true);
+    const r = await clearIcons();
+    setBusy(false);
+    if (r.ok) ui.toast({ title: "Icon cache cleared", description: on ? "Icons are fetched again as items come into view." : null, tone: "neutral", icon: "eraser" });
+    else if (r.unsupported) ui.toast({ title: "No icon cache yet", description: "This version of pm does not fetch website icons.", tone: "neutral", icon: "info" });
+    else ui.toast({ title: r.error, tone: "danger", icon: "triangle-alert" });
+  };
+  return (
+    <Card title="Website icons" flush>
+      <A.SettingRow title="Show website icons" description="Fetched from each site itself, refreshed monthly and kept on this computer. Nothing goes to a third party."><A.Switch label="Show website icons" checked={on} disabled={disk.readonly} onChange={(v) => act.settings({ siteIcons: v ? "on" : "off" })} /></A.SettingRow>
+      <A.SettingRow title="Icon cache" description="Removes every saved icon from this computer. Items show their first letter until an icon is fetched again."><A.Button size="sm" icon="eraser" loading={busy} onClick={clear}>Clear icon cache</A.Button></A.SettingRow>
+    </Card>
   );
 }
 

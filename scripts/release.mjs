@@ -29,7 +29,7 @@ for (const a of arches) {
   }
 }
 
-const builderBin = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "electron-builder.cmd" : "electron-builder");
+const builderCli = path.join(root, "node_modules", "electron-builder", "cli.js");
 const platformFlag = process.platform === "darwin" ? "--mac" : process.platform === "win32" ? "--win" : "--linux";
 
 run(process.execPath, [path.join("scripts", "build-renderer.mjs")]);
@@ -39,7 +39,7 @@ for (const arch of arches) {
   const outDir = OUT[arch];
   console.log("\nbuilding " + arch + " into release/" + outDir);
   run(process.execPath, [path.join("scripts", "build-backend.mjs"), "--arch", arch]);
-  run(builderBin, [platformFlag, "dir", "--" + arch, "-c.directories.output=release/" + outDir]);
+  run(process.execPath, [builderCli, platformFlag,"dir", "--" + arch, "-c.directories.output=release/" + outDir]);
   if (process.platform === "darwin") {
     const nested = path.join(root, "release", outDir, arch === "arm64" ? "mac-arm64" : "mac", APP_NAME);
     const dest = path.join(root, "release", outDir, APP_NAME);

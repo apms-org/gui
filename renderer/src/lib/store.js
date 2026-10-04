@@ -8,7 +8,7 @@ const read = (k) => { try { const s = localStorage.getItem(k); return s ? JSON.p
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
 
 const DEFAULT_PREFS = { theme: "system", customThemes: [], sidebar: true, sounds: true, density: "comfortable", space: "all", sort: "recent", view: "vault", lastItem: null, showCli: true, receipts: true, vaults: {} };
-const DEFAULT_SETTINGS = { sessionTimeout: "60", inactivity: "15", lockOnSleep: true, clipboard: "30", copyOnClick: true, confirmDelete: true, showTypeIcons: true, openOnLaunch: "all" };
+const DEFAULT_SETTINGS = { sessionTimeout: "60", inactivity: "15", lockOnSleep: true, clipboard: "30", copyOnClick: true, confirmDelete: true, showTypeIcons: true, openOnLaunch: "all", siteIcons: "on" };
 
 const freshSession = () => ({ unlocked: false, readonly: false, readonlyUntil: 0, unlockedAt: 0, lastActive: Date.now(), lockedAt: 0, lockReason: "" });
 
@@ -20,6 +20,8 @@ const S = {
   disk: null,
   prefs: Object.assign({}, DEFAULT_PREFS, read(PREFS) || {}),
   session: freshSession(),
+  pair: null,
+  seen: null,
   busy: {},
   v: 0
 };
@@ -137,6 +139,21 @@ async function loadSnapshot() {
 
 const byId = (id) => S.disk && (S.disk.items.find((x) => x.id === id) || S.disk.trash.find((x) => x.id === id));
 
+const toMs = (t) => { const n = Number(t) || 0; return n && n < 1e12 ? n * 1000 : n; };
+const normPair = (p) => (p && p.id ? { id: String(p.id), code: String(p.code || "").toUpperCase(), client: String(p.client || ""), expires: toMs(p.expires) } : null);
+const newer = (a, b) => (!b || !b.ts || (a && a.ts >= toMs(b.ts)) ? a : { ts: toMs(b.ts), client: String(b.client || ""), origin: String(b.origin || "") });
+
+function endPair(id, status) {
+  const p = S.pair;
+  if (!p || p.id !== id) return;
+  S.pair = null;
+  emit();
+  const who = p.client || "Your browser";
+  if (status === "approved") ui.toast({ title: who + " is connected", description: "It can fill from this vault while it is unlocked.", icon: "circle-check" });
+  else if (status === "denied") ui.toast({ title: "Connection denied", description: who + " was not connected.", tone: "neutral", icon: "circle-x" });
+  else if (status === "expired") ui.toast({ title: "Connection request expired", description: "Choose Connect in the extension to try again.", tone: "neutral", icon: "clock" });
+}
+
 export const A = {};
 
 A.boot = async () => {
@@ -146,6 +163,7 @@ A.boot = async () => {
     try { S.hello = await api.call("app.hello", {}); } catch (e) { S.hello = null; }
     const st = await call("vault.status");
     S.status = st;
+    await A.bridgeInfo();
     if (st.unlocked) {
       if (await loadSnapshot()) S.session = Object.assign(freshSession(), { unlocked: true, unlockedAt: Date.now() });
     } else if (st.exists && st.cliSession) {
@@ -158,6 +176,16 @@ A.boot = async () => {
   emit();
   api.on("vault.changed", (d) => { if (S.session.unlocked && d && d.snapshot) setDisk(d.snapshot); });
   api.on("vault.locked", (d) => { if (S.session.unlocked) { dropSession((d && d.reason) || "backend"); ui.toast({ title: "Vault locked", description: d && d.message ? d.message : null, tone: "neutral", icon: "lock" }); } });
+  api.on("vault.unlocked", async (d) => {
+    if (S.session.unlocked) { if (d && d.snapshot) setDisk(d.snapshot); return; }
+    try { if (d && d.snapshot) setDisk(d.snapshot); else await loadSnapshot(); } catch (e) { return; }
+    if (!S.disk || S.session.unlocked) return;
+    A.enter();
+    ui.toast({ title: "Unlocked from the browser", description: d && d.via === "browser-touchid" ? "With Touch ID" : null, tone: "neutral", icon: "lock-open" });
+  });
+  api.on("bridge.pair", (d) => { const p = normPair(d); if (!p) return; S.pair = p; emit(); });
+  api.on("bridge.pairDone", (d) => { if (d && d.id) endPair(String(d.id), d.status); });
+  api.on("bridge.activity", (d) => { A.activity(); const seen = newer(S.seen, d); if (seen !== S.seen) { S.seen = seen; emit(); } });
   api.on("mcp.pending", async (d) => {
     if (!S.session.unlocked) return;
     try { await loadSnapshot(); } catch (e) {}
@@ -320,6 +348,27 @@ A.verify = () => run("lgit.verify", {}, { quiet: true });
 A.passkeyRemove = (credentialId) => run("passkey.remove", { credentialId });
 A.passkeyRename = (credentialId, label) => run("passkey.rename", { credentialId, label: String(label || "").trim().slice(0, 120) });
 A.bridgeRotate = () => run("bridge.rotate");
+A.iconsGet = (hosts) => call("icons.get", { hosts });
+A.iconsClear = () => run("icons.clear", {}, { quiet: true });
+A.on = (event, cb) => (api && api.on ? api.on(event, cb) : () => {});
+A.bridgeInfo = async () => {
+  try {
+    const r = await call("bridge.info");
+    S.seen = newer(S.seen, r.lastSeen);
+    if (!S.pair && r.pair) S.pair = normPair(r.pair);
+    emit();
+    return r;
+  } catch (e) { return null; }
+};
+A.pairRespond = async (id, allow) => {
+  const r = await run("bridge.pairRespond", { id: String(id), allow: !!allow }, { quiet: true });
+  if (r.ok) endPair(id, r.status || (allow ? "approved" : "denied"));
+  else if (["not_found", "pair_expired", "pair_denied"].includes(r.code)) endPair(id, "expired");
+  else ui.toast({ title: r.error, tone: "danger", icon: "triangle-alert", duration: 4200 });
+  return r;
+};
+A.pairExpire = (id) => endPair(id, "expired");
+A.bridgeSeen = () => newer(S.seen, S.disk && S.disk.bridge.lastSeen);
 
 A.syncConnect = (p) => run("sync.connect", p, { quiet: true });
 A.syncDisconnect = (provider) => run("sync.disconnect", { provider });
@@ -355,6 +404,14 @@ A.sessionRevoke = (id) => run("sessions.revoke", { id });
 
 A.exportData = (o) => run("data.export", o, { quiet: true });
 A.importData = (o) => run("data.import", o, { quiet: true });
+A.transferFormats = () => run("transfer.formats", {}, { quiet: true });
+A.transferPreview = (o) => run("transfer.preview", o, { quiet: true });
+A.transferPlan = (token, space, keepSpaces) => run("transfer.plan", { token, space: space || "", keepSpaces: !!keepSpaces }, { quiet: true });
+A.transferApply = (token, space, keepSpaces, decisions) => run("transfer.apply", { token, space: space || "", keepSpaces: !!keepSpaces, decisions: decisions || {} }, { quiet: true });
+A.transferDiscard = (token) => { if (token && api && S.session.unlocked) api.call("transfer.discard", { token }).catch(() => {}); };
+A.transferCompare = (o) => run("transfer.compare", o, { quiet: true });
+A.exportPreview = (o) => run("transfer.exportPreview", o, { quiet: true });
+A.exportFile = (o) => run("transfer.export", o, { quiet: true });
 A.backup = async () => {
   const name = "vault-" + new Date().toISOString().slice(0, 10) + ".dat";
   const path = await api.dialog.save({ title: "Save an encrypted backup", defaultPath: name, filters: [{ name: "APM vault", extensions: ["dat"] }] });

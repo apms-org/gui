@@ -4,6 +4,7 @@ import { useStore, A as act, store } from "../lib/store.js";
 import { getType, titleOf, subOf, TYPES } from "../lib/types.js";
 import { ui, useUi } from "../lib/ui.js";
 import { Detail, itemMenu, SpaceChip } from "./detail.jsx";
+import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
 const SORTS = [{ value: "recent", label: "Last used" }, { value: "name", label: "Name" }, { value: "added", label: "Date added" }, { value: "type", label: "Type" }];
@@ -24,7 +25,7 @@ export function visibleItems(disk, prefs, filter, query) {
   if (filter.startsWith("type:")) { const ty = filter.slice(5); list = list.filter((i) => i.type === ty); }
   const q = String(query || "").trim().toLowerCase();
   if (q) {
-    const rank = (i) => { const n = titleOf(i).toLowerCase(); const hay = (n + " " + subOf(i) + " " + getType(i.type).label + " " + (i.f.website || "") + " " + (i.f.service || "") + " " + (i.space || "")).toLowerCase(); if (n === q) return 4; if (n.startsWith(q)) return 3; if (hay.includes(q)) return 2; let j = 0; for (const c of n) { if (c === q[j]) j++; if (j === q.length) return 1; } return 0; };
+    const rank = (i) => { const n = titleOf(i).toLowerCase(); const hay = (n + " " + subOf(i) + " " + getType(i.type).label + " " + (i.f.website || "") + " " + (Array.isArray(i.f.urls) ? i.f.urls.join(" ") : "") + " " + (i.f.service || "") + " " + (i.space || "")).toLowerCase(); if (n === q) return 4; if (n.startsWith(q)) return 3; if (hay.includes(q)) return 2; let j = 0; for (const c of n) { if (c === q[j]) j++; if (j === q.length) return 1; } return 0; };
     list = list.map((i) => ({ i, r: rank(i) })).filter((x) => x.r > 0).sort((a, b) => b.r - a.r).map((x) => x.i);
     return list;
   }
@@ -45,6 +46,7 @@ function groupsOf(list, prefs, query, filter) {
 }
 
 export function Vault({ analysis }) {
+  useIcons();
   const disk = useStore((s) => s.disk);
   const prefs = useStore((s) => s.prefs);
   const session = useStore((s) => s.session);
@@ -143,7 +145,7 @@ export function Vault({ analysis }) {
                       onClickCapture={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) { e.stopPropagation(); e.preventDefault(); click(e, it); } }}
                       onContextMenu={(e) => { e.preventDefault(); if (!sel) { ui.setMulti([]); ui.select(it.id); } setCtx({ x: e.clientX, y: e.clientY, it }); }}
                       onDoubleClick={() => filter !== "trash" && !ro && ui.edit(it.id)}>
-                      <A.ItemRow title={titleOf(it)} subtitle={filter === "trash" ? "Deleted " + U.agoLong(it.deletedAt) : subOf(it)} mono={["ssh_key", "ssh_config", "apikey", "cloud", "k8s"].includes(it.type)} time={U.ago(filter === "trash" ? it.deletedAt : it.used)} favorite={it.fav} alert={issue ? (issue.tone === "danger" ? "danger" : "warning") : null} active={act2 || sel} icon={it.type === "password" ? undefined : getType(it.type).icon} onClick={(e) => click(e, it)} />
+                      <A.ItemRow title={titleOf(it)} subtitle={filter === "trash" ? "Deleted " + U.agoLong(it.deletedAt) : subOf(it)} mono={["ssh_key", "ssh_config", "apikey", "cloud", "k8s"].includes(it.type)} time={U.ago(filter === "trash" ? it.deletedAt : it.used)} favorite={it.fav} alert={issue ? (issue.tone === "danger" ? "danger" : "warning") : null} active={act2 || sel} icon={it.type === "password" ? undefined : getType(it.type).icon} src={iconFor(it)} onClick={(e) => click(e, it)} />
                     </div>
                   );
                 })}
@@ -177,13 +179,14 @@ export function ContextMenu({ x, y, items, onClose }) {
 }
 
 function Bulk({ ids, disk }) {
+  useIcons();
   const items = disk.items.filter((i) => ids.includes(i.id));
   const types = {}; items.forEach((i) => { types[i.type] = (types[i.type] || 0) + 1; });
   return (
     <section className="detail">
       <div className="detail-bar drag" />
       <div className="bulk">
-        <div className="bulk-stack" aria-hidden="true">{items.slice(0, 4).map((i, k) => <span key={i.id} style={{ transform: "translate(" + k * 10 + "px," + k * -6 + "px) rotate(" + (k * 3 - 4) + "deg)", zIndex: 4 - k }}><A.ItemIcon name={titleOf(i)} size="lg" icon={i.type === "password" ? undefined : getType(i.type).icon} /></span>)}</div>
+        <div className="bulk-stack" aria-hidden="true">{items.slice(0, 4).map((i, k) => <span key={i.id} style={{ transform: "translate(" + k * 10 + "px," + k * -6 + "px) rotate(" + (k * 3 - 4) + "deg)", zIndex: 4 - k }}><A.ItemIcon name={titleOf(i)} size="lg" icon={i.type === "password" ? undefined : getType(i.type).icon} src={iconFor(i)} /></span>)}</div>
         <h2 className="title-2">{ids.length} items selected</h2>
         <p className="muted">{Object.entries(types).map(([t, n]) => n + " " + (n === 1 ? getType(t).label.toLowerCase() : getType(t).plural.toLowerCase())).join(", ")}</p>
         <div className="bulk-actions">
@@ -199,6 +202,7 @@ function Bulk({ ids, disk }) {
 }
 
 function TrashDetail({ it }) {
+  useIcons();
   const disk = useStore((s) => s.disk);
   const t = getType(it.type);
   return (
@@ -211,7 +215,7 @@ function TrashDetail({ it }) {
         </div>
       </div>
       <div className="detail-scroll"><div className="detail-body">
-        <div className="hero"><A.ItemIcon name={titleOf(it)} size="lg" icon={it.type === "password" ? undefined : t.icon} /><div className="hero-text"><h2 className="title-1 hero-title">{titleOf(it)}</h2><div className="hero-badges"><A.Badge icon={t.icon}>{t.label}</A.Badge><SpaceChip name={it.space} disk={disk} /><A.Badge tone="danger" icon="trash-2">Deleted {U.agoLong(it.deletedAt)}</A.Badge></div></div></div>
+        <div className="hero"><A.ItemIcon name={titleOf(it)} size="lg" icon={it.type === "password" ? undefined : t.icon} src={iconFor(it)} /><div className="hero-text"><h2 className="title-1 hero-title">{titleOf(it)}</h2><div className="hero-badges"><A.Badge icon={t.icon}>{t.label}</A.Badge><SpaceChip name={it.space} disk={disk} /><A.Badge tone="danger" icon="trash-2">Deleted {U.agoLong(it.deletedAt)}</A.Badge></div></div></div>
         <A.Callout tone="neutral" title="This item is in Trash">It is kept inside the encrypted vault, and syncs with it, until you empty Trash. pm does not show it. Restore puts it back where it was.</A.Callout>
       </div></div>
     </section>

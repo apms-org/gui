@@ -70,6 +70,52 @@ test("forwards events and ignores non protocol noise", async () => {
   }
 });
 
+test("forwards bridge pairing events and answers bridge.pairRespond", async () => {
+  const b = make();
+  b.start();
+  try {
+    const asked = nextEvent(b, "bridge.pair");
+    const started = await b.call("test.pairStart", { client: "Chrome on macOS" });
+    const req = await asked;
+    assert.deepEqual(req, started);
+    assert.match(req.id, /^[0-9a-f]{16}$/);
+    assert.match(req.code, /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+    assert.equal(req.client, "Chrome on macOS");
+    assert.ok(req.expires > Date.now());
+    assert.deepEqual((await b.call("bridge.info")).pair, req);
+    const done = nextEvent(b, "bridge.pairDone");
+    assert.deepEqual(await b.call("bridge.pairRespond", { id: req.id, allow: true }), { ok: true, status: "approved" });
+    assert.deepEqual(await done, { id: req.id, status: "approved" });
+    assert.equal((await b.call("bridge.info")).pair, null);
+    await assert.rejects(b.call("bridge.pairRespond", { id: req.id, allow: false }), (err) => err.code === "not_found");
+    const seen = nextEvent(b, "bridge.activity");
+    await b.call("test.activity", { client: "Chrome 131 on macOS" });
+    const act = await seen;
+    assert.equal(act.client, "Chrome 131 on macOS");
+    assert.ok(act.ts > 0);
+    assert.equal((await b.call("bridge.info")).lastSeen.ts, act.ts);
+  } finally {
+    await b.stop();
+  }
+});
+
+test("forwards vault.unlocked and vault.locked from the browser", async () => {
+  const b = make();
+  b.start();
+  try {
+    const unlocked = nextEvent(b, "vault.unlocked");
+    await b.call("test.browserUnlock", { via: "browser-touchid" });
+    const u = await unlocked;
+    assert.equal(u.via, "browser-touchid");
+    assert.equal(u.snapshot.meta.name, "Fake vault");
+    const locked = nextEvent(b, "vault.locked");
+    await b.call("test.browserLock");
+    assert.deepEqual(await locked, { reason: "Locked from the browser" });
+  } finally {
+    await b.stop();
+  }
+});
+
 test("reassembles frames split across chunks and handles large payloads", async () => {
   const b = make();
   b.start();

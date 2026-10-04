@@ -10,7 +10,7 @@ const f = (key, label, kind, extra) => Object.assign({ key, label, kind: kind ||
 export const TYPES = [
   { id: "password", label: "Login", plural: "Logins", icon: "globe", cat: "personal", titleKey: "account", primary: "password",
     blurb: "A username and password for a website or app.",
-    fields: [f("account", "Name", "text", { required: true, placeholder: "GitHub" }), f("username", "Username", "text", { icon: "user", placeholder: "you@example.com" }), f("password", "Password", "password", { required: true, icon: "key-round" }), f("website", "Website", "url", { icon: "globe", placeholder: "github.com" }), f("urls", "Other websites", "list", { icon: "link-2", placeholder: "Add a URL" })],
+    fields: [f("account", "Name", "text", { required: true, placeholder: "GitHub" }), f("username", "Username", "text", { icon: "user", placeholder: "you@example.com" }), f("password", "Password", "password", { required: true, icon: "key-round" }), f("totp", "Two-factor code", "totp", { icon: "timer", placeholder: "Setup key or otpauth:// link", hint: "The key or link the site shows when you turn on 2FA. Spaces are ignored." }), f("website", "Website", "url", { icon: "globe", placeholder: "github.com" }), f("urls", "Other websites", "list", { icon: "link-2", placeholder: "Add a URL" }), f("notes", "Notes", "multiline", { icon: "file-text" }), f("fields", "Custom fields", "custom", { icon: "list" })],
     sub: (x) => x.username || x.website || "" },
   { id: "totp", label: "Authenticator", plural: "Authenticator", icon: "timer", cat: "personal", titleKey: "account", primary: "secret",
     blurb: "A 6-digit two-factor code that changes every 30 seconds.",
@@ -124,6 +124,7 @@ export const titleOf = (it) => { const t = getType(it.type); return (it.f && it.
 export const subOf = (it) => { try { return getType(it.type).sub(it.f || {}) || ""; } catch (e) { return ""; } };
 export const passwordKey = (type) => (type === "password" || type === "wifi" ? "password" : null);
 export const secretKeys = (type) => getType(type).fields.filter((x) => ["password", "secret", "secretBlock", "totp", "codes"].includes(x.kind)).map((x) => x.key);
+export const customFields = (v) => (Array.isArray(v) ? v : []).filter((x) => x && (x.label || x.value));
 export const primaryValue = (it) => {
   const t = getType(it.type);
   if (!t.primary) return "";
