@@ -35,6 +35,9 @@ struct Outcome {
 @property(nonatomic, strong) LAContext *context;
 @property(nonatomic, strong) LAAuthenticationView *view;
 @property(nonatomic, assign) napi_threadsafe_function done;
+// Set by cancel(). A check the app has cancelled never reports success, even
+// if a finger lands while the cancel is in flight.
+@property(atomic, assign) BOOL cancelled;
 @end
 
 @implementation APMTouchSession
@@ -113,6 +116,7 @@ static void Cancel() {
   if (!current) return;
   APMTouchSession *s = current;
   current = nil;
+  s.cancelled = YES;
   [s.view removeFromSuperview];
   [s.context invalidate];
 }
@@ -163,11 +167,12 @@ static napi_value Start(napi_env env, napi_callback_info info) {
   [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
       localizedReason:[NSString stringWithUTF8String:reason]
                 reply:^(BOOL success, NSError *error) {
-                  long code = success ? 0 : (long)error.code;
                   dispatch_async(dispatch_get_main_queue(), ^{
+                    bool ok = success && !s.cancelled;
+                    long code = ok ? 0 : s.cancelled ? (long)LAErrorAppCancel : (long)error.code;
                     [s.view removeFromSuperview];
                     if (current == s) current = nil;
-                    napi_call_threadsafe_function(s.done, new Outcome{(bool)success, code}, napi_tsfn_blocking);
+                    napi_call_threadsafe_function(s.done, new Outcome{ok, code}, napi_tsfn_blocking);
                     napi_release_threadsafe_function(s.done, napi_tsfn_release);
                   });
                 }];
