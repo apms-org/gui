@@ -16,6 +16,8 @@ const DIST = path.join(__dirname, "..", "dist");
 const READ_LIMIT = 50 * 1024 * 1024;
 const IDLE_POLL_MS = 15000;
 const IDLE_MIN_SECONDS = 60;
+const LOCK_POLL_MS = 5000;
+const UNLOCK_METHODS = new Set(["vault.unlock", "vault.unlockTouchID", "vault.unlockSession", "vault.setup"]);
 
 const userDataOverride = process.env.APM_USER_DATA_DIR;
 app.setPath("userData", userDataOverride ? path.resolve(userDataOverride) : path.join(app.getPath("appData"), "APM Desktop"));
@@ -31,6 +33,11 @@ let pmPath = null;
 let pmSource = null;
 let menuState = { locked: true, hasSelection: false };
 let idleTimer = null;
+let lockTimer = null;
+// The renderer runs auto-lock while a window is open. On macOS the app, and
+// with it the extension bridge, keeps running after the last window closes, so
+// the main process applies the same policy until a window comes back.
+const lockWatch = { settings: {}, unlockedAt: 0, lastActive: 0, locking: false };
 let clip = { text: null, timer: null };
 const approvedWrite = new Set();
 const approvedRead = new Set();
@@ -40,6 +47,44 @@ let touchId = null;
 
 function send(event, data) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("apm:event", { event, data: data === undefined ? null : data });
+}
+
+function noteSettings(snap) {
+  if (snap && snap.settings && typeof snap.settings === "object") lockWatch.settings = snap.settings;
+}
+
+function noteUnlocked() {
+  lockWatch.unlockedAt = lockWatch.lastActive = Date.now();
+}
+
+function lockMinutes(v, fallback) {
+  return v == null || v === "" ? fallback : Number(v);
+}
+
+async function lockWithoutWindow(reason) {
+  if (mainWindow || lockWatch.locking || !backend || !backend.running) return;
+  lockWatch.locking = true;
+  const since = lockWatch.unlockedAt;
+  try {
+    // vault.lock also ends the pm CLI session, so only call it when the app
+    // itself holds the vault open.
+    const st = await backend.call("vault.status", {}, { timeout: 5000 });
+    if (st && st.unlocked && !mainWindow) await backend.call("vault.lock", { reason }, { timeout: 5000 });
+    if (lockWatch.unlockedAt === since) lockWatch.unlockedAt = 0;
+  } catch (err) {
+  } finally {
+    lockWatch.locking = false;
+  }
+}
+
+function checkLockWithoutWindow() {
+  if (mainWindow || !lockWatch.unlockedAt) return;
+  const st = lockWatch.settings;
+  const idleMin = lockMinutes(st.inactivity, 15);
+  const maxMin = lockMinutes(st.sessionTimeout, 60);
+  const now = Date.now();
+  if (idleMin > 0 && now - lockWatch.lastActive > idleMin * 60000) lockWithoutWindow("idle");
+  else if (maxMin > 0 && now - lockWatch.unlockedAt > maxMin * 60000) lockWithoutWindow("expired");
 }
 
 function userData() {
@@ -91,6 +136,12 @@ function startBackend() {
   backend.on("event", (event, data) => {
     if (event === "touchid.prompt") { touchId.prompt(data || {}); return; }
     if (event === "touchid.cancel") { touchId.cancelInline(data && data.id); return; }
+    if (event === "vault.unlocked") noteUnlocked();
+    // The pairing code is approved in the app, so bring it in front of the
+    // browser. A new window picks the request up from bridge.info on boot.
+    if (event === "bridge.pair") showWindow({ steal: true });
+    if (event === "bridge.activity") lockWatch.lastActive = Date.now();
+    if (data && data.snapshot) noteSettings(data.snapshot);
     send(event, data);
   });
   backend.on("spawn", () => touchId.cancelInline());
@@ -176,7 +227,10 @@ function registerIpc() {
       err.code = "invalid";
       throw err;
     }
-    return backend.call(method, params === undefined ? {} : params);
+    const result = await backend.call(method, params === undefined ? {} : params);
+    if (UNLOCK_METHODS.has(method)) noteUnlocked();
+    noteSettings(method === "vault.snapshot" ? result : result && result.snapshot);
+    return result;
   }));
 
   ipcMain.handle("apm:touchid-info", envelope(async () => ({ inline: touchId.inline })));
@@ -399,28 +453,40 @@ function createWindow() {
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("blur", () => touchId.cancelInline());
   mainWindow.webContents.on("did-start-navigation", (e) => { if (e.isMainFrame && !e.isSameDocument) { touchId.setSlot(null); touchId.cancelInline(); } });
-  mainWindow.on("closed", () => { touchId.setSlot(null); touchId.cancelInline(); mainWindow = null; });
+  mainWindow.on("closed", () => { touchId.setSlot(null); touchId.cancelInline(); mainWindow = null; lockWatch.lastActive = Date.now(); });
+}
+
+function onSleep(state) {
+  send("power", { state });
+  if (!mainWindow && lockWatch.unlockedAt && lockWatch.settings.lockOnSleep !== false) lockWithoutWindow("sleep");
+}
+
+function showWindow(opts) {
+  if (!mainWindow) {
+    createWindow();
+  } else {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  if (opts && opts.steal && process.platform === "darwin") app.focus({ steal: true });
 }
 
 function watchPower() {
-  powerMonitor.on("suspend", () => send("power", { state: "suspend" }));
-  powerMonitor.on("lock-screen", () => send("power", { state: "lock-screen" }));
+  powerMonitor.on("suspend", () => onSleep("suspend"));
+  powerMonitor.on("lock-screen", () => onSleep("lock-screen"));
   idleTimer = setInterval(() => {
     let seconds = 0;
     try { seconds = powerMonitor.getSystemIdleTime(); } catch (err) { seconds = 0; }
     if (seconds >= IDLE_MIN_SECONDS) send("power", { state: "idle", seconds });
   }, IDLE_POLL_MS);
+  lockTimer = setInterval(checkLockWithoutWindow, LOCK_POLL_MS);
 }
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-  });
+  app.on("second-instance", () => showWindow());
 
   app.whenReady().then(() => {
     // A packaged app gets its icon from Assets.car, which macOS 26+ draws with
@@ -458,6 +524,7 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
     clearClipboardIfOurs();
     if (idleTimer) clearInterval(idleTimer);
+    if (lockTimer) clearInterval(lockTimer);
     if (backend && backend.running) {
       event.preventDefault();
       backend.stop().finally(() => app.quit());
