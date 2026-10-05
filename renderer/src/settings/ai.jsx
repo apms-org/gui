@@ -13,7 +13,7 @@ export const TOOL_GROUPS = [
   { id: "secrets", label: "Secrets", risk: "high", desc: "Read secret values and one-time codes.", tools: ["get_entry", "decrypt_entry", "get_totp"] },
   { id: "write", label: "Write", risk: "high", desc: "Changes need your approval here first.", tools: ["add_entry", "edit_entry", "delete_entry", "manage_spaces", "cloud_sync"] },
   { id: "admin", label: "Admin", risk: "medium", desc: "Profiles, cloud settings, history and audit logs.", tools: ["manage_profiles", "cloud_config", "get_history", "get_audit_logs"] },
-  { id: "utility", label: "Utility", risk: "low", desc: "Setup checks, password generation and transactions.", tools: ["check_installation", "install_apm", "generate_password", "tx_list", "tx_abort"] }
+  { id: "utility", label: "Utility", risk: "low", desc: "Password generation and pending requests.", tools: ["generate_password", "tx_list", "tx_abort"] }
 ];
 const ALL_TOOLS = TOOL_GROUPS.flatMap((g) => g.tools);
 const CLIENTS = [
@@ -125,7 +125,7 @@ function Approval({ t, now }) {
 
 function TokenDialog({ client, onClose }) {
   const [name, setName] = React.useState(client || "");
-  const [perms, setPerms] = React.useState(["list_vault", "search_vault", "generate_password", "check_installation"]);
+  const [perms, setPerms] = React.useState(["list_vault", "search_vault", "generate_password"]);
   const [exp, setExp] = React.useState("43200");
   const [out, setOut] = React.useState(null);
   const [cfg, setCfg] = React.useState(null);
@@ -158,8 +158,8 @@ function TokenDialog({ client, onClose }) {
           </div>
           <div className="presets">
             <span className="apm-label">Start from</span>
-            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(["generate_password", "check_installation"]))}>Browse only</button>
-            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, ["generate_password", "check_installation"]))}>Read secrets</button>
+            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(["generate_password"]))}>Browse only</button>
+            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, ["generate_password"]))}>Read secrets</button>
             <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, TOOL_GROUPS[2].tools.slice(0, 3), TOOL_GROUPS[4].tools))}>Assistant</button>
             <button type="button" className="chip" onClick={() => preset(ALL_TOOLS)}>Everything</button>
           </div>
