@@ -4,8 +4,8 @@ import { useStore, A as act } from "../lib/store.js";
 import { ui } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
 import { getType } from "../lib/types.js";
-import { Card, Head, Status } from "./common.jsx";
-import { Cli, CodeBlock } from "../ui/kit.jsx";
+import { Card, Head } from "./common.jsx";
+import { Cli } from "../ui/kit.jsx";
 
 const cx = U.cx;
 export const PROVIDERS = [
@@ -46,7 +46,7 @@ export function Sync() {
             <div key={P.id} className="prov">
               <span className={cx("prov-logo", "is-" + P.id)}><A.Icon name={icon(P.id)} size={16} /></span>
               <div className="prov-text">
-                <div className="prov-top"><b>{P.name}</b>{connected && (p.state === "error" ? <Status tone="danger">Last sync failed</Status> : p.last ? <Status tone="success">Synced {U.ago(p.last)}</Status> : <Status tone="neutral">Connected</Status>)}</div>
+                <div className="prov-top"><b>{P.name}</b>{connected && (p.state === "error" ? <A.Status tone="danger">Last sync failed</A.Status> : p.last ? <A.Status tone="success">Synced {U.ago(p.last)}</A.Status> : <A.Status tone="neutral">Connected</A.Status>)}</div>
                 <span className="prov-desc">{connected ? <span className="mono-small">{P.detail(p)}{p.error ? " · " + p.error : ""}</span> : P.blurb}</span>
               </div>
               {connected ? (
@@ -129,7 +129,7 @@ function ConnectDialog({ id: initial, onClose }) {
       title={step === 0 ? "Connect a provider" : step === 3 ? "Connected to " + P.name : "Connect " + P.name}
       description={step === 0 ? "You can add more later." : step === 1 ? P.blurb : step === 2 ? (oauth ? "Finish signing in in your browser. Keep this window open." : "Encrypting and uploading. Keep the app open.") : "The first encrypted copy is uploaded."}
       footer={step === 1 ? <><A.Button onClick={() => (initial ? onClose() : setStep(0))}>{initial ? "Cancel" : "Back"}</A.Button><A.Button variant="primary" disabled={!ready} onClick={connect}>{oauth ? "Sign in and upload" : "Connect and upload"}</A.Button></> : step === 3 ? <A.Button variant="primary" onClick={onClose}>Done</A.Button> : step === 0 ? <A.Button onClick={onClose}>Cancel</A.Button> : null}>
-      {step === 0 && <div className="choice-list">{PROVIDERS.map((x) => { const c = disk.sync.providers.find((p) => p.id === x.id && p.connected); return <button key={x.id} type="button" className="choice" disabled={!!c} onClick={() => pick(x)}><span className={cx("prov-logo", "is-" + x.id)}><A.Icon name={icon(x.id)} size={16} /></span><span className="choice-text"><span className="choice-title">{x.name}{c && <A.Badge size="sm" tone="success">Connected</A.Badge>}</span><span className="choice-desc">{x.blurb}</span></span><A.Icon name="chevron-right" size={14} className="muted" /></button>; })}</div>}
+      {step === 0 && <div className="choice-list">{PROVIDERS.map((x) => { const c = disk.sync.providers.find((p) => p.id === x.id && p.connected); return <A.ChoiceTile key={x.id} variant="list" arrow disabled={!!c} onClick={() => pick(x)} leading={<span className={cx("prov-logo", "is-" + x.id)}><A.Icon name={icon(x.id)} size={16} /></span>} title={x.name} badge={c ? <A.Badge size="sm" tone="success">Connected</A.Badge> : null} description={x.blurb} />; })}</div>}
       {step === 1 && P && (
         <div className="stack-16">
           {P.modes.length > 1 && <A.SegmentedControl label="Where" value={mode} onChange={(v) => { setMode(v); setErr(null); }} options={P.modes} />}
@@ -147,12 +147,12 @@ function ConnectDialog({ id: initial, onClose }) {
             <A.Checkbox checked={consent} onChange={setConsent} label="Create a retrieval key" description="Stores a one-way hash of the key with the file, so you can restore on another device with just the key." />
             {consent && <A.Input label="Custom retrieval key" value={customKey} onChange={(e) => setCustomKey(e.target.value)} placeholder="Leave blank to generate one" icon="key-round" className="mono-input" />}
           </div>}
-          {err && <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+          {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
           <Cli cmd={"pm cloud init " + P.id} />
         </div>
       )}
       {step === 2 && <div className="touch-wait"><A.Spinner size={20} /><span>{oauth ? "Waiting for the browser…" : "Uploading the encrypted vault…"}</span></div>}
-      {step === 3 && P && (out && out.retrievalKey ? <div className="stack-12"><CodeBlock label="Retrieval key" copy={out.retrievalKey}>{out.retrievalKey}</CodeBlock><p className="help">Keep it with your recovery key. You can see it again from the provider menu.</p></div> : <div className="kv-list"><div className="kv"><div className="kv-label">Location</div><div className="kv-value is-mono">{P.id === "github" ? repo : P.detail({ mode, fileId: out && out.fileId })}</div></div><div className="kv"><div className="kv-label">Encrypted with</div><div className="kv-value">{disk.meta.cipher}</div></div></div>)}
+      {step === 3 && P && (out && out.retrievalKey ? <div className="stack-12"><A.CodeBlock label="Retrieval key" copy={out.retrievalKey}>{out.retrievalKey}</A.CodeBlock><p className="help">Keep it with your recovery key. You can see it again from the provider menu.</p></div> : <A.KeyValueList><A.KeyValue label="Location" mono>{P.id === "github" ? repo : P.detail({ mode, fileId: out && out.fileId })}</A.KeyValue><A.KeyValue label="Encrypted with">{disk.meta.cipher}</A.KeyValue></A.KeyValueList>)}
     </A.Dialog>
   );
 }
@@ -162,7 +162,7 @@ function KeyDialog({ id, onClose }) {
   const p = disk.sync.providers.find((x) => x.id === id) || {};
   return (
     <A.Dialog open onClose={onClose} size="sm" icon="key-round" title={"Retrieval key for " + pName(id)} description="Anyone with this key can download the encrypted file. They still need your master password." footer={<A.Button variant="primary" onClick={onClose}>Done</A.Button>}>
-      <CodeBlock label="Retrieval key" copy={p.retrievalKey}>{p.retrievalKey || "none"}</CodeBlock>
+      <A.CodeBlock label="Retrieval key" copy={p.retrievalKey}>{p.retrievalKey || "none"}</A.CodeBlock>
     </A.Dialog>
   );
 }

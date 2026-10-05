@@ -4,8 +4,8 @@ import { useStore, A as act, store } from "../lib/store.js";
 import { ui, saveFile } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
 import { titleOf, getType, INJECT } from "../lib/types.js";
-import { Card, Head, Status } from "./common.jsx";
-import { CodeBlock, Cli } from "../ui/kit.jsx";
+import { Card, Head } from "./common.jsx";
+import { Cli } from "../ui/kit.jsx";
 import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
@@ -87,7 +87,7 @@ export function Developer() {
           <div className="inj-vars">
             <div className="envtable">
               <div className="env-row is-head"><span>Variable</span><span>From</span><span>Value</span></div>
-              {chosen.length === 0 && <div className="card-empty">Pick at least one item.</div>}
+              {chosen.length === 0 && <div className="apm-card-empty">Pick at least one item.</div>}
               {chosen.map((i) => (
                 <div key={i.id} className="env-row">
                   <input className="env-name mono" value={nameOf(i)} onChange={(e) => setNames(Object.assign({}, names, { [i.id]: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_") }))} aria-label={"Variable for " + titleOf(i)} spellCheck={false} />
@@ -98,10 +98,10 @@ export function Developer() {
             </div>
           </div>
         </div>
-        <div className="card-pad stack-12">
-          <CodeBlock label="Run" wrap>{cmd}</CodeBlock>
+        <div className="apm-card-pad stack-12">
+          <A.CodeBlock label="Run" wrap>{cmd}</A.CodeBlock>
           <div className="grid-2 is-top">
-            <CodeBlock label=".apminject" maxHeight={170} copy={yaml}>{yaml}</CodeBlock>
+            <A.CodeBlock label=".apminject" maxHeight={170} copy={yaml}>{yaml}</A.CodeBlock>
             <div className="stack-8 inj-notes">
               <span className="muted small">pm looks for <span className="mono-inline">.apminject</span> in the current folder and its parents, so a plain <span className="mono-inline">pm inject</span> works inside the project.</span>
               <A.Button size="sm" icon="file-down" disabled={!chosen.length} onClick={() => saveFile(".apminject", yaml + "\n", "text/yaml")}>Save .apminject</A.Button>
@@ -113,7 +113,7 @@ export function Developer() {
       <Card title="Shell function" description="Installs an inject function so you do not need eval. Run it once per shell." cli="pm inject setup-shell">
         <div className="stack-12">
           <A.SegmentedControl label="Shell" value={shell} onChange={setShell} options={[{ value: "zsh", label: "zsh" }, { value: "bash", label: "bash" }, { value: "fish", label: "fish" }, { value: "powershell", label: "PowerShell" }]} />
-          <CodeBlock label={shell}>{setup}</CodeBlock>
+          <A.CodeBlock label={shell}>{setup}</A.CodeBlock>
         </div>
       </Card>
       <CommandLine />
@@ -134,7 +134,7 @@ function CommandLine() {
   return (
     <Card title="Command line" flush cli="which pm">
       {managed && <PmCommand app={app} />}
-      {(info.engine || info.pmPath) && <A.SettingRow title="Engine" description={<span className="mono-inline path-wrap">{home(engine.path) || "Not found"}</span>}><Status tone={engine.path && engine.source !== "missing" ? "success" : "warning"}>{ENGINE_SOURCE[engine.source] || (engine.path ? "Found" : "Missing")}</Status></A.SettingRow>}
+      {(info.engine || info.pmPath) && <A.SettingRow title="Engine" description={<span className="mono-inline path-wrap">{home(engine.path) || "Not found"}</span>}><A.Status tone={engine.path && engine.source !== "missing" ? "success" : "warning"}>{ENGINE_SOURCE[engine.source] || (engine.path ? "Found" : "Missing")}</A.Status></A.SettingRow>}
       <A.SettingRow title="Use this vault from the terminal" description={<span>pm uses a <span className="mono-inline">vault.dat</span> next to itself if there is one, otherwise <span className="mono-inline">~/.apm/vault.dat</span>. <span className="mono-inline">APM_VAULT_PATH</span> points it anywhere else.</span>}><A.Button size="sm" icon="copy" onClick={() => { act.copyValue(env); ui.toast({ title: "Copied the export line", description: "Add it to your shell profile.", tone: "neutral", icon: "copy" }); }}>Copy export</A.Button></A.SettingRow>
     </Card>
   );
@@ -177,10 +177,10 @@ function PmCommand({ app }) {
     action = <A.Button size="sm" icon="copy" onClick={() => { act.copyValue("brew upgrade pm"); ui.toast({ title: "Copied brew upgrade pm", description: "Run it in a terminal.", tone: "neutral", icon: "copy" }); }}>Copy command</A.Button>;
   } else if (cli.state === "newer") {
     description = <span>pm {found.version} at {at} is newer than this app ({cli.version}). Update APM to match it.</span>;
-    action = <Status tone="warning">Newer than APM</Status>;
+    action = <A.Status tone="warning">Newer than APM</A.Status>;
   } else {
     description = <span>pm {cli.version}{found.path ? <> at {at}</> : null}.</span>;
-    action = <Status tone="success">Up to date</Status>;
+    action = <A.Status tone="success">Up to date</A.Status>;
   }
   return <A.SettingRow icon="terminal" title="pm command" description={description}>{action}</A.SettingRow>;
 }
@@ -230,7 +230,7 @@ function DestroyDialog({ onClose }) {
         <div className="stack-12">
           {disk.sync.providers.some((p) => p.connected) && <A.Callout tone="warning" title="Synced copies stay">Encrypted copies on {disk.sync.providers.filter((p) => p.connected).map((p) => ({ github: "GitHub", gdrive: "Google Drive", dropbox: "Dropbox" }[p.id] || p.id)).join(" and ")} are not deleted.</A.Callout>}
           <A.Input label={<span>Type <b className="mono-inline">{disk.meta.name}</b> to confirm</span>} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} autoFocus />
-          {err && <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+          {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
         </div>
       ) : <div className="destroy-run"><A.Spinner size={16} /><span>Deleting vault.dat and its history…</span></div>}
     </A.Dialog>

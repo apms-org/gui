@@ -6,8 +6,7 @@ import { register } from "../lib/registry.js";
 import { PROFILES, CIPHERS, describe } from "../lib/profiles.js";
 import { activePolicy } from "../lib/types.js";
 import { NewPasswordFields, passwordOk } from "../screens/auth.jsx";
-import { Choice } from "../ui/kit.jsx";
-import { Card, Head, Status, lockMinutes, lockSummary } from "./common.jsx";
+import { Card, Head, lockMinutes, lockSummary } from "./common.jsx";
 
 const cx = U.cx;
 
@@ -59,10 +58,10 @@ export function Security() {
         <div className="choice-list">
           {["standard", "hardened", "paranoid"].map((id) => {
             const p = PROFILES[id];
-            return <Choice key={id} selected={m.profile === id} onClick={() => choose(id)} disabled={disk.readonly} title={p.name} badge={id === "hardened" ? <A.Badge size="sm" tone="accent">Recommended</A.Badge> : null} description={p.blurb} meta={<span className="mono-small">{describe(p)} · unlock {p.unlock}</span>} />;
+            return <A.ChoiceTile variant="list" key={id} selected={m.profile === id} onClick={() => choose(id)} disabled={disk.readonly} title={p.name} badge={id === "hardened" ? <A.Badge size="sm" tone="accent">Recommended</A.Badge> : null} description={p.blurb} meta={<span className="mono-small">{describe(p)} · unlock {p.unlock}</span>} />;
           })}
-          {isCustom(m) && <Choice selected onClick={() => ui.open("profile-custom")} title={P.name} badge={<A.Badge size="sm">Custom</A.Badge>} description="Your own parameters." meta={<span className="mono-small">{describe(P)} · unlock {fmtSec(estimate(P))}</span>} />}
-          {m.profile === "legacy" && <Choice selected title="Legacy" badge={<A.Badge size="sm" tone="danger">Costs 20 health</A.Badge>} description={PROFILES.legacy.blurb} meta={<span className="mono-small">{describe(PROFILES.legacy)}</span>} />}
+          {isCustom(m) && <A.ChoiceTile variant="list" selected onClick={() => ui.open("profile-custom")} title={P.name} badge={<A.Badge size="sm">Custom</A.Badge>} description="Your own parameters." meta={<span className="mono-small">{describe(P)} · unlock {fmtSec(estimate(P))}</span>} />}
+          {m.profile === "legacy" && <A.ChoiceTile variant="list" selected title="Legacy" badge={<A.Badge size="sm" tone="danger">Costs 20 health</A.Badge>} description={PROFILES.legacy.blurb} meta={<span className="mono-small">{describe(PROFILES.legacy)}</span>} />}
         </div>
       </Card>
       <Card title="Cipher" cli="pm cinfo" description="Both are authenticated. Pick XChaCha20 if you move the vault between very different machines."
@@ -87,9 +86,9 @@ function Policies() {
   const [open, setOpen] = React.useState(null);
   return (
     <Card title="Password policy" description="Rules checked when you add or change a login. Loaded from YAML files in the policies folder next to pm." flush cli={cur ? "pm policy load " + cur.name : "pm policy list"}
-      footNote={cur ? <Status tone="accent">Enforcing “{cur.name}”</Status> : "No policy. Any password is accepted, and Watchtower still flags weak ones."}
+      footNote={cur ? <A.Status tone="accent">Enforcing “{cur.name}”</A.Status> : "No policy. Any password is accepted, and Watchtower still flags weak ones."}
       footer={cur ? <A.Button size="sm" variant="ghost" onClick={async () => { const r = await act.policy(null); if (r.ok) ui.toast({ title: "Policy cleared", tone: "neutral" }); }}>Clear policy</A.Button> : null}>
-      {disk.policies.length === 0 && <div className="card-empty">No policy files found. Add YAML files to the policies folder, then reopen Settings.</div>}
+      {disk.policies.length === 0 && <div className="apm-card-empty">No policy files found. Add YAML files to the policies folder, then reopen Settings.</div>}
       {disk.policies.map((p) => {
         const on = cur && cur.name === p.name;
         return (
@@ -103,7 +102,7 @@ function Policies() {
             </button>
             {open === p.name && (
               <div className="policy-rules">
-                {[["Minimum length", (p.min_length || 0) + " characters"], ["Uppercase letter", p.require_uppercase ? "Required" : "Optional"], ["Number", p.require_numbers ? "Required" : "Optional"], ["Symbol", p.require_symbols ? "Required" : "Optional"], ["Rotation", p.rotate_every_days ? "Every " + p.rotate_every_days + " days" : "Not required"]].map(([k, v]) => <div key={k} className="kv"><div className="kv-label">{k}</div><div className="kv-value">{v}</div></div>)}
+                {[["Minimum length", (p.min_length || 0) + " characters"], ["Uppercase letter", p.require_uppercase ? "Required" : "Optional"], ["Number", p.require_numbers ? "Required" : "Optional"], ["Symbol", p.require_symbols ? "Required" : "Optional"], ["Rotation", p.rotate_every_days ? "Every " + p.rotate_every_days + " days" : "Not required"]].map(([k, v]) => <A.KeyValue key={k} label={k}>{v}</A.KeyValue>)}
               </div>
             )}
           </div>
@@ -196,7 +195,7 @@ function ReencryptDialog({ profile, cipher, custom, onClose }) {
       </div>
       {phase === "run" && <div className="derive"><div className="derive-row"><b>Re-encrypting {U.n(disk.items.length, "item")}</b><span className="mono-small">{describe(to)}</span></div><div className="lock-bar"><i /></div></div>}
       {phase === "ask" && to.memory >= 512 && <A.Callout tone="warning" title="Needs 512 MiB free to unlock">Older or busy machines may take several seconds. pm on a small VPS may fail to unlock.</A.Callout>}
-      {err && <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+      {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
     </A.Dialog>
   );
 }

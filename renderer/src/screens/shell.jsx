@@ -194,7 +194,7 @@ function QuickLook({ disk }) {
           {it.f.file && /^image/.test(it.f.file.mime || "") && <QuickImage id={it.id} mime={it.f.file.mime} />}
           {it.type === "note" && <pre className="quick-note">{String(it.f.content || "").split("\n").slice(0, 18).join("\n")}</pre>}
           {tot && <div className="quick-totp"><A.TotpCode secret={tot.f.secret.replace(/\s/g, "")} size="lg" /></div>}
-          <div className="kv-list">{t.fields.filter((x) => x.key !== t.titleKey && it.f[x.key] && !["file", "note", "custom", "totp"].includes(x.kind)).slice(0, 6).map((x) => <div className="kv" key={x.key}><div className="kv-label">{x.label}</div><div className={cx("kv-value", x.mono && "is-mono")}>{["password", "secret", "secretBlock", "totp", "codes"].includes(x.kind) ? "••••••••••" : Array.isArray(it.f[x.key]) ? it.f[x.key].join(", ") : String(it.f[x.key])}</div></div>)}</div>
+          <A.KeyValueList>{t.fields.filter((x) => x.key !== t.titleKey && it.f[x.key] && !["file", "note", "custom", "totp"].includes(x.kind)).slice(0, 6).map((x) => <A.KeyValue key={x.key} label={x.label} mono={!!x.mono}>{["password", "secret", "secretBlock", "totp", "codes"].includes(x.kind) ? "••••••••••" : Array.isArray(it.f[x.key]) ? it.f[x.key].join(", ") : String(it.f[x.key])}</A.KeyValue>)}</A.KeyValueList>
         </div>
         <div className="ql-foot"><span>Space or Esc to close</span><A.Button size="sm" variant="ghost" onClick={() => { const id = it.id; ui.quick(null); ui.select(id); }}>Open item</A.Button></div>
       </div>

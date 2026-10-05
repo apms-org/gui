@@ -5,7 +5,7 @@ import { getType, titleOf, passwordKey } from "../lib/types.js";
 import { ui } from "../lib/ui.js";
 import { LEVEL_TONE, LEVEL_LABEL } from "../lib/health.js";
 import { register } from "../lib/registry.js";
-import { Meter, Cli } from "../ui/kit.jsx";
+import { Cli } from "../ui/kit.jsx";
 import { iconFor, useIcons } from "../lib/icons.js";
 
 const cx = U.cx;
@@ -32,18 +32,15 @@ export function Watchtower({ analysis: a }) {
     <div className="page">
       <div className="page-bar drag" />
       <div className="page-inner" style={{ maxWidth: 900 }}>
-        <header className="page-head">
-          <div className="page-head-text">
-            <h1 className="page-title">Watchtower</h1>
-            <p className="page-desc">Checks run locally against your decrypted vault. Nothing is sent anywhere.</p>
-            <div className="set-cli"><Cli cmd="pm health" /><Cli cmd="pm trust" /></div>
-          </div>
-          <div className="page-actions">
+        <A.PageHeader size="lg" title="Watchtower"
+          description="Checks run locally against your decrypted vault. Nothing is sent anywhere."
+          actions={<>
             <A.Button size="sm" icon="eraser" onClick={() => ui.open("cleanup")}>Clean up</A.Button>
-          </div>
-        </header>
+          </>}>
+          <Cli cmd="pm health" /><Cli cmd="pm trust" />
+        </A.PageHeader>
         <div className="wt-hero">
-          <Meter value={a.score} tone={tone} size={132} stroke={10} sub="of 100" />
+          <A.Meter value={a.score} tone={tone} size={132} stroke={10} sub="of 100" />
           <div className="wt-hero-text">
             <div className="wt-verdict"><A.Badge tone={tone} dot>{verdict}</A.Badge></div>
             <h2 className="title-2">Vault health</h2>

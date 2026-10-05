@@ -35,21 +35,18 @@ export function History() {
     <div className="page">
       <div className="page-bar drag" />
       <div className="page-inner" style={{ maxWidth: 900 }}>
-        <header className="page-head">
-          <div className="page-head-text">
-            <h1 className="page-title">History</h1>
-            <p className="page-desc">Every save is a signed commit with an encrypted snapshot of the whole vault, so any change can be undone.</p>
-            <div className="set-cli"><Cli cmd="pm lgit log" /><Cli cmd="pm lgit undo" /></div>
-          </div>
-          <div className="page-actions">
+        <A.PageHeader size="lg" title="History"
+          description="Every save is a signed commit with an encrypted snapshot of the whole vault, so any change can be undone."
+          actions={<>
             <A.Button size="sm" icon="undo-2" kbd={["⌘", "Z"]} onClick={undo} disabled={disk.commits.length < 2 || disk.readonly}>Undo last change</A.Button>
             <A.Menu align="end" width={220} trigger={<A.IconButton icon="ellipsis" label="More history actions" tip={false} variant="secondary" size="md" />} items={[
               { label: "Reset to HEAD", icon: "rotate-ccw", onSelect: reset },
               { label: "Squash history…", icon: "archive", onSelect: () => ui.open("squash") },
               { label: "Prune snapshots", icon: "eraser", onSelect: prune }
             ]} />
-          </div>
-        </header>
+          </>}>
+          <Cli cmd="pm lgit log" /><Cli cmd="pm lgit undo" />
+        </A.PageHeader>
         <div className="hist-status">
           <div className="hist-stat"><span className="hist-stat-l">HEAD</span><span className="hist-stat-v"><A.Badge tone={head ? "success" : "neutral"} dot>{head ? head.action : "No commits"}</A.Badge><span className="mono-small">{head ? head.id.slice(-12) : "none"}</span></span><span className="hist-stat-s">{head ? "Latest commit " + U.agoLong(head.ts) : "Saves from pm and the app record commits"}</span></div>
           <div className="hist-stat"><span className="hist-stat-l">Chain</span><span className="hist-stat-v">{verify && verify !== "running" ? <A.Badge tone={verify.ok ? "success" : "danger"} icon={verify.ok ? "check-check" : "triangle-alert"}>{verify.good} of {verify.total} verified</A.Badge> : <A.Button size="sm" variant="ghost" icon="shield-check" loading={verify === "running"} onClick={runVerify}>Verify signatures</A.Button>}</span><span className="hist-stat-s">HMAC-SHA256 over each commit and its parent</span></div>
@@ -86,14 +83,14 @@ function Commits() {
               </button>
               {open === c.id && (
                 <div className="commit-detail">
-                  <div className="kv-list">
-                    <div className="kv"><div className="kv-label">Commit</div><div className="kv-value is-mono">{c.id}</div></div>
-                    <div className="kv"><div className="kv-label">Time</div><div className="kv-value">{U.dateTime(c.ts)}</div></div>
-                    <div className="kv"><div className="kv-label">Data hash</div><div className="kv-value is-mono">{c.dataHash ? c.dataHash.slice(0, 32) + "…" : "none"}</div></div>
-                    <div className="kv"><div className="kv-label">Parent hash</div><div className="kv-value is-mono">{c.prevHash ? c.prevHash.slice(0, 32) + "…" : "none (root)"}</div></div>
-                    <div className="kv"><div className="kv-label">Snapshot</div><div className="kv-value is-mono">{has ? "lgit_snapshots · " + U.bytes(c.bytes || 0) : "missing"}</div></div>
-                    <div className="kv"><div className="kv-label">Signature</div><div className="kv-value">{c.verified ? <A.Badge size="sm" tone="success" icon="check-check">Verified</A.Badge> : <A.Badge size="sm" tone="danger">Broken</A.Badge>}</div></div>
-                  </div>
+                  <A.KeyValueList>
+                    <A.KeyValue label="Commit" mono>{c.id}</A.KeyValue>
+                    <A.KeyValue label="Time">{U.dateTime(c.ts)}</A.KeyValue>
+                    <A.KeyValue label="Data hash" mono>{c.dataHash ? c.dataHash.slice(0, 32) + "…" : "none"}</A.KeyValue>
+                    <A.KeyValue label="Parent hash" mono>{c.prevHash ? c.prevHash.slice(0, 32) + "…" : "none (root)"}</A.KeyValue>
+                    <A.KeyValue label="Snapshot" mono>{has ? "lgit_snapshots · " + U.bytes(c.bytes || 0) : "missing"}</A.KeyValue>
+                    <A.KeyValue label="Signature">{c.verified ? <A.Badge size="sm" tone="success" icon="check-check">Verified</A.Badge> : <A.Badge size="sm" tone="danger">Broken</A.Badge>}</A.KeyValue>
+                  </A.KeyValueList>
                   {i > 0 && <div className="commit-actions"><A.Button size="sm" icon="rotate-ccw" onClick={() => ui.open("confirm", { title: "Restore this version?", description: "The vault goes back to how it was on " + U.dateTime(c.ts) + ". A CHECKOUT commit is recorded, so this is undoable. The snapshot must decrypt with your current master password.", icon: "rotate-ccw", confirm: "Restore version", onConfirm: async () => { const r = await act.checkout(c.id); ui.toast(r.ok ? { title: "Vault restored to " + U.date(c.ts) } : { title: r.error, tone: "danger" }); } })} disabled={!has || disk.readonly}>Restore this version</A.Button>{!has && <span className="muted small">Snapshot was squashed. Only newer versions can be restored.</span>}</div>}
                 </div>
               )}
@@ -114,7 +111,7 @@ function Audit() {
   return (
     <div className="stack-12">
       <div className="audit-tools">
-        <div className="chips">{AUDIT_GROUPS.map((x) => <button key={x.value} type="button" className={cx("chip", g === x.value && "is-on")} onClick={() => setG(x.value)}>{x.label}</button>)}</div>
+        <div className="chips">{AUDIT_GROUPS.map((x) => <A.Chip key={x.value} selected={g === x.value} onClick={() => setG(x.value)}>{x.label}</A.Chip>)}</div>
         <A.SearchField size="sm" placeholder="Filter events" value={q} onChange={setQ} shortcut={null} />
       </div>
       <div className="audit">
@@ -140,7 +137,7 @@ function Events() {
   const rows = disk.history.filter((e) => a === "all" || e.action === a);
   return (
     <div className="stack-12">
-      <div className="chips">{["all", "ADD", "EDIT", "GET", "DEL", "MERGE"].map((x) => <button key={x} type="button" className={cx("chip", a === x && "is-on")} onClick={() => setA(x)}>{x === "all" ? "All" : x}</button>)}</div>
+      <div className="chips">{["all", "ADD", "EDIT", "GET", "DEL", "MERGE"].map((x) => <A.Chip key={x} selected={a === x} onClick={() => setA(x)}>{x === "all" ? "All" : x}</A.Chip>)}</div>
       <div className="audit">
         {rows.slice(0, 200).map((e, i) => (
           <div key={i} className="audit-row">

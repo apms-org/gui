@@ -3,7 +3,7 @@ import U from "../lib/util.js";
 import { useStore, A as act, store } from "../lib/store.js";
 import { ui, openUrl } from "../lib/ui.js";
 import { SPACE_COLORS, SpaceDot } from "../screens/spaces.jsx";
-import { Card, Head, Status } from "./common.jsx";
+import { Card, Head } from "./common.jsx";
 
 const cx = U.cx;
 
@@ -129,7 +129,7 @@ export function Alerts() {
         <div className="alert-events">{ALERT_EVENTS.map((x) => <span key={x.action} className={cx("alert-ev", x.level <= lvl && m.alerts && "is-on")}><A.Icon name={x.level <= lvl && m.alerts ? "check" : "minus"} size={12} strokeWidth={2.25} />{x.label}</span>)}</div>
       </Card>
       <Card title="Recent alertable events" flush>
-        {recent.length === 0 ? <div className="card-empty">Nothing at this level yet.</div> : recent.map((e) => (
+        {recent.length === 0 ? <div className="apm-card-empty">Nothing at this level yet.</div> : recent.map((e) => (
           <div key={e.id} className="mini-event">
             <span className={cx("mini-event-dot", /FAILED|ANOMALY|DESTROYED/.test(e.action) && "is-danger")} />
             <span className="mono-small">{e.action}</span>
@@ -149,7 +149,7 @@ export function About() {
     <>
       <div className="about-hero">
         <A.Mark size={64} tile />
-        <div className="stack-4"><h1 className="set-title">APM</h1><span className="muted">A local-first password and secrets manager for people who live in the terminal.</span></div>
+        <div className="stack-4"><h1 className="title-1 about-title">APM</h1><span className="muted">A local-first password and secrets manager for people who live in the terminal.</span></div>
       </div>
       <Card flush>
         <A.SettingRow title="Version"><span className="mono">{info.version || "unknown"}</span></A.SettingRow>

@@ -73,7 +73,7 @@ function NewItemDialog({ type: initial, onClose }) {
         {t.fields.map((x, i) => <FieldEdit key={x.key} def={x} value={f[x.key]} autoFocus={i === 0} policy={activePolicy(disk)} onChange={(v) => { const n = { ...f, [x.key]: v }; if (type === "totp" && x.key === "secret") { const p = parseOtpauth(v); if (p) { n.secret = p.secret; if (!n.account) n.account = p.account; } } setF(n); setErr(null); }} />)}
         <A.Select label="Space" icon="layers" value={space} onChange={setSpace} options={[{ value: "", label: "Default" }].concat(disk.spaces.map((s) => ({ value: s.name, label: s.name })))} />
         {type === "document" && <A.Callout tone="warning" title="Delete the original yourself">APM encrypts a copy. The file you chose stays on disk until you remove it.</A.Callout>}
-        {err && <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+        {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
       </form>
     </A.Dialog>
   );

@@ -4,8 +4,7 @@ import { useStore, A as act } from "../lib/store.js";
 import { ui } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
 import { getType } from "../lib/types.js";
-import { Card, Head, Status, useNow, left } from "./common.jsx";
-import { CodeBlock } from "../ui/kit.jsx";
+import { Card, Head, useNow, left } from "./common.jsx";
 
 const cx = U.cx;
 export const TOOL_GROUPS = [
@@ -40,13 +39,13 @@ export function AiAccess() {
       </Card>
       {pending.length > 0 && (
         <div className="approvals">
-          <div className="approvals-head"><Status tone="accent" pulse>{pending.length} waiting for you</Status><span className="muted small">Requests expire after 15 minutes</span></div>
+          <div className="approvals-head"><A.Status tone="accent" pulse>{pending.length} waiting for you</A.Status><span className="muted small">Requests expire after 15 minutes</span></div>
           {pending.map((t) => <Approval key={t.id} t={t} now={now} />)}
         </div>
       )}
       <Card title="Access tokens" description="Revoking a token cuts that assistant off on its next call." flush cli="pm mcp token"
         actions={<A.Button size="sm" variant="primary" icon="plus" disabled={!mcp.enabled} onClick={() => ui.open("mcp-token")}>New token</A.Button>}>
-        {mcp.tokens.length === 0 && <div className="card-empty">No tokens. Create one per assistant.</div>}
+        {mcp.tokens.length === 0 && <div className="apm-card-empty">No tokens. Create one per assistant.</div>}
         {mcp.tokens.map((t) => {
           const expired = !!(t.expires && t.expires < now);
           const groups = TOOL_GROUPS.filter((g) => g.tools.some((x) => t.perms.includes(x)));
@@ -69,7 +68,7 @@ export function AiAccess() {
             <A.Button size="sm" variant="secondary" disabled={!mcp.enabled} onClick={() => ui.open("mcp-token", { client: c.name })}>Set up</A.Button>
           </A.SettingRow>
         ))}
-        <div className="card-pad"><CodeBlock label="Manual setup · any MCP client" maxHeight={180}>{JSON.stringify({ mcpServers: { apm: { command: "pm", args: ["mcp", "serve", "--token", "<your token>"] } } }, null, 2)}</CodeBlock></div>
+        <div className="apm-card-pad"><A.CodeBlock label="Manual setup · any MCP client" maxHeight={180}>{JSON.stringify({ mcpServers: { apm: { command: "pm", args: ["mcp", "serve", "--token", "<your token>"] } } }, null, 2)}</A.CodeBlock></div>
       </Card>
       {past.length > 0 && (
         <Card title="Past requests" flush>
@@ -108,7 +107,7 @@ function Approval({ t, now }) {
             {Object.entries(t.entry.f).map(([k, v]) => {
               const def = type && type.fields.find((x) => x.key === k);
               const secret = def && ["password", "secret", "secretBlock", "totp"].includes(def.kind);
-              return <div key={k} className="kv"><div className="kv-label">{def ? def.label : k}</div><div className={cx("kv-value", (secret || (def && def.mono)) && "is-mono")}>{secret ? String(v).slice(0, 8) + "•".repeat(10) : String(v)}</div></div>;
+              return <A.KeyValue key={k} label={def ? def.label : k} mono={!!(secret || (def && def.mono))}>{secret ? String(v).slice(0, 8) + "•".repeat(10) : String(v)}</A.KeyValue>;
             })}
           </div>
         )}
@@ -158,10 +157,10 @@ function TokenDialog({ client, onClose }) {
           </div>
           <div className="presets">
             <span className="apm-label">Start from</span>
-            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(["generate_password"]))}>Browse only</button>
-            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, ["generate_password"]))}>Read secrets</button>
-            <button type="button" className="chip" onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, TOOL_GROUPS[2].tools.slice(0, 3), TOOL_GROUPS[4].tools))}>Assistant</button>
-            <button type="button" className="chip" onClick={() => preset(ALL_TOOLS)}>Everything</button>
+            <A.Chip onClick={() => preset(TOOL_GROUPS[0].tools.concat(["generate_password"]))}>Browse only</A.Chip>
+            <A.Chip onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, ["generate_password"]))}>Read secrets</A.Chip>
+            <A.Chip onClick={() => preset(TOOL_GROUPS[0].tools.concat(TOOL_GROUPS[1].tools, TOOL_GROUPS[2].tools.slice(0, 3), TOOL_GROUPS[4].tools))}>Assistant</A.Chip>
+            <A.Chip onClick={() => preset(ALL_TOOLS)}>Everything</A.Chip>
           </div>
           <div className="toolgroups">
             {TOOL_GROUPS.map((g) => {
@@ -177,12 +176,12 @@ function TokenDialog({ client, onClose }) {
             })}
           </div>
           {risky && <A.Callout tone="warning" title="This assistant can read secret values">Only give secrets access to assistants you run locally. Every read is written to the audit log.</A.Callout>}
-          {err && <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+          {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
         </div>
       ) : (
         <div className="stack-12">
-          <CodeBlock label="Token" copy={out}>{out}</CodeBlock>
-          {cfg && <CodeBlock label={"Config" + (where ? " · paste into " + where.path : "")} copy={cfg} maxHeight={200}>{cfg}</CodeBlock>}
+          <A.CodeBlock label="Token" copy={out}>{out}</A.CodeBlock>
+          {cfg && <A.CodeBlock label={"Config" + (where ? " · paste into " + where.path : "")} copy={cfg} maxHeight={200}>{cfg}</A.CodeBlock>}
           <p className="help">Restart {name.trim() || "the assistant"} after editing its config. Write requests show up here for approval.</p>
         </div>
       )}

@@ -75,9 +75,9 @@ const IconButton=forwardRef(function IconButton({icon,label,kbd,tip=true,tipSide
   return tip?h(Tooltip,{label,kbd,side:tipSide},el):el;
 });
 
-function Hint({tone,icon,children}){
-  if(!children)return h("div",{className:"apm-hint","aria-hidden":true});
-  return h("div",{className:cx("apm-hint","apm-hint-enter",tone&&"apm-hint-"+tone),role:tone==="danger"?"alert":undefined},icon&&h(Icon,{name:icon,size:14}),h("span",null,children));
+function Hint({tone,icon,children,className}){
+  if(!children)return h("div",{className:cx("apm-hint",className),"aria-hidden":true});
+  return h("div",{className:cx("apm-hint","apm-hint-enter",tone&&"apm-hint-"+tone,className),role:tone==="danger"?"alert":undefined},icon&&h(Icon,{name:icon,size:14}),h("span",null,children));
 }
 
 const Input=forwardRef(function Input({label,hint,hintTone,icon,trailing,size="md",invalid=false,disabled=false,id,className,style,...rest},ref){
@@ -571,10 +571,10 @@ function accepts(f,accept){
   return list.some(a=>a==="*"||(a.startsWith(".")?n.endsWith(a):a.endsWith("/*")?t.startsWith(a.slice(0,-1)):t===a));
 }
 
-function Stepper({items=[],value,onChange,label="Progress",className}){
+function Stepper({items=[],value,onChange,label="Progress",layout="inline",className}){
   const norm=items.map(o=>typeof o==="string"?{value:o,label:o}:o);
   const cur=Math.max(0,norm.findIndex(o=>o.value===value));
-  return h("ol",{className:cx("apm-steps",className),"aria-label":label},
+  return h("ol",{className:cx("apm-steps",layout==="spread"&&"is-spread",className),"aria-label":label},
     norm.map((o,i)=>{
       const state=i<cur?"done":i===cur?"current":"todo";
       const inner=[h("span",{key:"n",className:"apm-steps-dot","aria-hidden":true},state==="done"?h(Icon,{name:"check",size:12,strokeWidth:2.5}):i+1),h("span",{key:"l",className:"apm-steps-label"},o.label)];
@@ -612,7 +612,7 @@ function CompareTable({columns={left:"Current",right:"Incoming"},rows=[],classNa
       hasSecret&&h("span",{className:"apm-cmp-act"},r.secret&&!revealAll&&h(IconButton,{icon:shown[r.key]?"eye-off":"eye",size:"xs",label:(shown[r.key]?"Hide ":"Show ")+String(r.label).toLowerCase(),onClick:()=>setShown(Object.assign({},shown,{[r.key]:!shown[r.key]}))})))));
 }
 
-function ChoiceGroup({value,onChange,label,columns,children,className}){
+function ChoiceGroup({value,onChange,label,columns,compact=false,children,className}){
   const ref=useRef(null);
   const onKey=(e)=>{
     if(!["ArrowRight","ArrowDown","ArrowLeft","ArrowUp"].includes(e.key))return;
@@ -626,16 +626,20 @@ function ChoiceGroup({value,onChange,label,columns,children,className}){
   const sel=(c)=>c.props.selected!=null?c.props.selected:value===c.props.value;
   const any=all.some(c=>c&&c.type===ChoiceTile&&sel(c));
   const first=all.findIndex(c=>c&&c.type===ChoiceTile&&!c.props.disabled);
-  const kids=all.map((c,i)=>c&&c.type===ChoiceTile?React.cloneElement(c,{selected:sel(c),onSelect:c.props.onSelect||(()=>onChange&&onChange(c.props.value)),_group:true,_tab:sel(c)||(!any&&i===first)}):c);
-  return h("div",{ref,className:cx("apm-choices",className),role:"radiogroup","aria-label":label,onKeyDown:onKey,style:columns?{"--cols":columns}:undefined},kids);
+  const kids=all.map((c,i)=>c&&c.type===ChoiceTile?React.cloneElement(c,{selected:sel(c),onSelect:c.props.onSelect||c.props.onClick||(()=>onChange&&onChange(c.props.value)),_group:true,_tab:sel(c)||(!any&&i===first)}):c);
+  return h("div",{ref,className:cx("apm-choices",compact&&"is-compact",className),role:"radiogroup","aria-label":label,onKeyDown:onKey,style:columns?{"--cols":columns}:undefined},kids);
 }
 
-function ChoiceTile({value,icon,tile,title,description,meta,selected=false,disabled=false,onSelect,className,_group,_tab}){
-  return h("button",{type:"button",role:_group?"radio":undefined,"aria-checked":_group?(selected?"true":"false"):undefined,"aria-pressed":_group?undefined:(selected?"true":"false"),"aria-disabled":disabled||undefined,disabled,tabIndex:_group&&!_tab?-1:0,
-    className:cx("apm-choice",selected&&"is-selected",disabled&&"is-disabled",className),onClick:()=>{if(!disabled&&onSelect)onSelect(value);}},
-    tile?h(ItemIcon,Object.assign({size:"md"},tile)):icon&&h("span",{className:"apm-choice-icon"},h(Icon,{name:icon,size:16})),
-    h("span",{className:"apm-choice-text"},h("span",{className:"apm-choice-title"},title),description&&h("span",{className:"apm-choice-desc"},description),meta&&h("span",{className:"apm-choice-meta"},meta)),
-    h("span",{className:"apm-choice-mark","aria-hidden":true},selected&&h(Icon,{name:"check",size:12,strokeWidth:2.75})));
+function ChoiceTile({value,icon,tile,leading,title,badge,description,meta,trailing,children,selected=false,disabled=false,arrow=false,variant="tile",compact=false,onSelect,onClick,className,_group,_tab}){
+  const list=variant==="list";
+  const go=onSelect||onClick;
+  const lead=leading!=null?leading:tile?h(ItemIcon,Object.assign({size:"md"},tile)):icon&&h("span",{className:"apm-choice-icon"},h(Icon,{name:icon,size:list?18:16}));
+  return h("button",{type:"button",role:_group?"radio":undefined,"aria-checked":_group?(selected?"true":"false"):undefined,"aria-pressed":_group||arrow?undefined:(selected?"true":"false"),"aria-disabled":disabled||undefined,disabled,tabIndex:_group&&!_tab?-1:0,
+    className:cx("apm-choice",list&&"is-list",compact&&"is-compact",arrow&&"is-arrow",selected&&"is-selected",disabled&&"is-disabled",className),onClick:()=>{if(!disabled&&go)go(value);}},
+    lead,
+    h("span",{className:"apm-choice-text"},h("span",{className:cx("apm-choice-title",badge&&"has-badge")},title,badge),description&&h("span",{className:"apm-choice-desc"},description),meta&&h("span",{className:"apm-choice-meta"},meta),children),
+    trailing,
+    arrow?h(Icon,{name:"chevron-right",size:16,className:"apm-choice-arrow"}):h("span",{className:"apm-choice-mark","aria-hidden":true},selected&&h(Icon,{name:"check",size:12,strokeWidth:2.75})));
 }
 
 function ReviewRow({checked,onCheck,disabled=false,name,letter,icon,src,solid,title,subtitle,badges,trailing,tone,expanded=false,onToggle,children,className}){
@@ -655,6 +659,76 @@ function ReviewRow({checked,onCheck,disabled=false,name,letter,icon,src,solid,ti
     expanded&&canExpand&&h("div",{className:"apm-review-body"},children));
 }
 
-const APM={Icon,Mark,Spinner,Kbd,Command,Button,IconButton,Tooltip,Input,PasswordInput,SearchField,Select,Textarea,Checkbox,Switch,SegmentedControl,Tabs,Slider,Badge,ItemIcon,Avatar,NavItem,ItemRow,FieldGroup,SecretField,SettingRow,TotpCode,StrengthMeter,Progress,Callout,EmptyState,Toast,Dialog,Menu,MenuList,CommandMenu,FileDrop,Stepper,StatGroup,CompareTable,ChoiceGroup,ChoiceTile,ReviewRow,icons:Object.keys(ICONS),totp,copyText};
+function PageHeader({title,description,actions,badge,size="md",children,className}){
+  return h("header",{className:cx("apm-page-head",size==="lg"&&"is-lg",className)},
+    h("div",{className:"apm-page-head-text"},
+      h("h1",{className:"apm-page-head-title"},title,badge),
+      description&&h("p",{className:"apm-page-head-desc"},description),
+      children!=null&&children!==false&&h("div",{className:"apm-page-head-extra"},children)),
+    actions&&h("div",{className:"apm-page-head-actions"},actions));
+}
+
+function Card({title,description,actions,footer,footNote,danger=false,flush=false,id,className,style,children}){
+  return h("section",{className:cx("apm-card",danger&&"is-danger",className),id,style},
+    (title||actions)&&h("div",{className:"apm-card-head"},
+      h("div",{className:"apm-card-head-text"},title&&h("h3",{className:"apm-card-title"},title),description&&h("p",{className:"apm-card-desc"},description)),
+      actions&&h("div",{className:"apm-card-actions"},actions)),
+    children!=null&&h("div",{className:cx("apm-card-body",flush&&"is-flush")},children),
+    (footer||footNote)&&h("div",{className:"apm-card-foot"},
+      h("span",{className:"apm-card-foot-note"},footNote),
+      footer&&h("div",{className:"apm-card-foot-actions"},footer)));
+}
+
+function KeyValueList({children,className,style}){
+  return h("div",{className:cx("apm-kvs",className),style},children);
+}
+
+function KeyValue({label,mono=false,copy,children,className}){
+  return h("div",{className:cx("apm-kv",className)},
+    h("div",{className:"apm-kv-label"},label),
+    h("div",{className:cx("apm-kv-value",mono&&"is-mono")},children),
+    copy!=null&&copy!==false&&h(IconButton,{icon:"copy",label:"Copy "+String(label).toLowerCase(),size:"xs",onClick:()=>copyText(copy)}));
+}
+
+function Status({tone="neutral",pulse=false,children,className}){
+  return h("span",{className:cx("apm-status",tone&&tone!=="neutral"&&"is-"+tone,className)},
+    h("i",{className:cx("apm-status-dot",pulse&&"is-pulse"),"aria-hidden":true}),children);
+}
+
+function Chip({selected,icon,disabled=false,onClick,children,className,title}){
+  return h("button",{type:"button",className:cx("apm-chip",selected&&"is-selected",className),"aria-pressed":selected==null?undefined:(selected?"true":"false"),disabled,onClick,title},
+    icon&&h(Icon,{name:icon,size:14}),children);
+}
+
+function CodeBlock({children,label,copy,wrap=false,maxHeight,className}){
+  const [done,setDone]=useState(false);
+  const timer=useRef(null);
+  useEffect(()=>()=>clearTimeout(timer.current),[]);
+  const canCopy=copy!==false;
+  const doCopy=()=>{copyText(typeof copy==="string"?copy:String(children));setDone(true);clearTimeout(timer.current);timer.current=setTimeout(()=>setDone(false),1400);};
+  return h("div",{className:cx("apm-codeblock",className)},
+    (label||canCopy)&&h("div",{className:"apm-codeblock-head"},h("span",null,label),
+      canCopy&&h(Button,{variant:"ghost",size:"sm",icon:done?"check":"copy",onClick:doCopy},done?"Copied":"Copy")),
+    h("pre",{className:cx("apm-codeblock-pre",wrap&&"is-wrap"),style:maxHeight?{maxHeight}:undefined},children));
+}
+
+function StepList({items=[],className}){
+  return h("ol",{className:cx("apm-steplist",className)},
+    items.map((x,i)=>h("li",{key:i},h("span",{className:"apm-steplist-n","aria-hidden":true},i+1),h("div",{className:"apm-steplist-body"},x))));
+}
+
+function Meter({value=0,max=100,tone,size=120,stroke=10,label,sub,className}){
+  const r=(size-stroke)/2,C=2*Math.PI*r;
+  const [shown,setShown]=useState(0);
+  useEffect(()=>{const t=requestAnimationFrame(()=>setShown(value));return()=>cancelAnimationFrame(t);},[value]);
+  const f=Math.max(0,Math.min(1,shown/max));
+  return h("div",{className:cx("apm-meter",tone&&tone!=="neutral"&&"is-"+tone,className),style:{width:size,height:size},role:"meter","aria-valuemin":0,"aria-valuemax":max,"aria-valuenow":value},
+    h("svg",{width:size,height:size,viewBox:"0 0 "+size+" "+size,"aria-hidden":true},
+      h("circle",{className:"apm-meter-track",cx:size/2,cy:size/2,r,strokeWidth:stroke,fill:"none"}),
+      h("circle",{className:"apm-meter-arc",cx:size/2,cy:size/2,r,strokeWidth:stroke,fill:"none",strokeLinecap:"round",strokeDasharray:C,strokeDashoffset:C*(1-f)})),
+    h("div",{className:"apm-meter-center"},h("span",{className:"apm-meter-value"},label!=null?label:value),sub&&h("span",{className:"apm-meter-sub"},sub)));
+}
+
+const APM={Icon,Mark,Spinner,Kbd,Command,Button,IconButton,Tooltip,Input,PasswordInput,SearchField,Select,Textarea,Checkbox,Switch,SegmentedControl,Tabs,Slider,Badge,ItemIcon,Avatar,NavItem,ItemRow,FieldGroup,SecretField,SettingRow,TotpCode,StrengthMeter,Progress,Callout,EmptyState,Toast,Dialog,Menu,MenuList,CommandMenu,FileDrop,Stepper,StatGroup,CompareTable,ChoiceGroup,ChoiceTile,ReviewRow,Hint,PageHeader,Card,KeyValueList,KeyValue,Status,Chip,CodeBlock,StepList,Meter,icons:Object.keys(ICONS),totp,copyText};
 window.APM=Object.assign(window.APM||{},APM);
 })();

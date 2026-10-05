@@ -54,17 +54,14 @@ export function Authenticator() {
     <div className="page page-wide">
       <div className="page-bar drag" />
       <div className="page-inner" style={{ maxWidth: 1040 }}>
-        <header className="page-head">
-          <div className="page-head-text">
-            <h1 className="page-title">Authenticator</h1>
-            <p className="page-desc">{list.length} code{list.length === 1 ? "" : "s"}{space !== "all" ? " in " + (space || "Default") : ""}. Press <A.Kbd keys={["1"]} /> to <A.Kbd keys={["9"]} /> to copy by position, drag to reorder.</p>
-            <div className="set-cli"><Cli cmd="pm totp" /></div>
-          </div>
-          <div className="page-actions">
+        <A.PageHeader size="lg" title="Authenticator"
+          description={<>{list.length} code{list.length === 1 ? "" : "s"}{space !== "all" ? " in " + (space || "Default") : ""}. Press <A.Kbd keys={["1"]} /> to <A.Kbd keys={["9"]} /> to copy by position, drag to reorder.</>}
+          actions={<>
             <A.SearchField placeholder="Filter codes" value={q} onChange={setQ} shortcut={null} size="sm" />
             <A.Button variant="primary" size="sm" icon="plus" onClick={() => ui.open("new", { type: "totp" })}>Add code</A.Button>
-          </div>
-        </header>
+          </>}>
+          <Cli cmd="pm totp" />
+        </A.PageHeader>
         <div className={cx("totp-clock", low && "is-low")}>
           <span className="totp-clock-label">{low ? "New codes in " : "Codes refresh in "}<b>{Math.ceil(remaining)}s</b></span>
           <div className="totp-clock-bar"><i style={{ transform: "scaleX(" + remaining / 30 + ")" }} /></div>

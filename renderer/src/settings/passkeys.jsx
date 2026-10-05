@@ -4,8 +4,7 @@ import { useStore, A as act } from "../lib/store.js";
 import { ui } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
 import { titleOf } from "../lib/types.js";
-import { CodeBlock } from "../ui/kit.jsx";
-import { Card, Head, Status, Steps, Masked, useNow } from "./common.jsx";
+import { Card, Head, Masked, useNow } from "./common.jsx";
 import { PairCode, PairTimer, usePair } from "../screens/pair.jsx";
 
 const cx = U.cx;
@@ -47,19 +46,19 @@ export function Passkeys() {
     <>
       <Head title="Browser extension" description="APM for Chrome fills logins, one-time codes and passkeys from this vault. It talks to this app over a loopback bridge, or to pm when the app is closed, and cannot decrypt anything on its own." />
       <Card title="Browser bridge"
-        actions={seen ? <Status tone={live ? "success" : "neutral"} pulse={live}>{(seen.client || "A browser") + " · " + activeFor(seen.ts, now)}</Status> : <Status tone="neutral">No browser connected yet</Status>}
+        actions={seen ? <A.Status tone={live ? "success" : "neutral"} pulse={live}>{(seen.client || "A browser") + " · " + activeFor(seen.ts, now)}</A.Status> : <A.Status tone="neutral">No browser connected yet</A.Status>}
         footNote={b.running ? <span>Listening on <span className="mono-inline">127.0.0.1:{b.port}</span>. Loopback only. A browser needs your approval here before it can read anything.</span> : <span>Not running. Another app may be using port <span className="mono-inline">{b.port}</span>. Quit it and restart APM.</span>}>
         <div className="bridge">
           <div className="bridge-node"><span className="bridge-ic"><A.Icon name="globe" size={16} /></span><b>APM for Chrome</b><span className="muted small">{seen ? (live ? "Active" : "Idle") : "Not connected"}</span></div>
           <div className={cx("bridge-wire", b.running && "is-live")}><i /><span className="mono-small">bearer token</span></div>
-          <div className="bridge-node"><span className="bridge-ic is-app"><A.Mark size={18} /></span><b>APM</b><span className="muted small">{b.running ? <Status tone="success" pulse>Running</Status> : <Status tone="neutral">Stopped</Status>}</span></div>
+          <div className="bridge-node"><span className="bridge-ic is-app"><A.Mark size={18} /></span><b>APM</b><span className="muted small">{b.running ? <A.Status tone="success" pulse>Running</A.Status> : <A.Status tone="neutral">Stopped</A.Status>}</span></div>
           <div className={cx("bridge-wire", b.running && "is-live")}><i /><span className="mono-small">decrypts</span></div>
           <div className="bridge-node"><span className="bridge-ic"><A.Icon name="file-lock-2" size={16} /></span><b>vault.dat</b><span className="muted small">{all.length} passkeys</span></div>
         </div>
       </Card>
       <Card title="Connect a browser" description="No token to copy. The extension asks, and you confirm the code here.">
         {pair && <PendingPair key={pair.id} p={pair} />}
-        <Steps items={[
+        <A.StepList items={[
           <span>Install <b>APM for Chrome</b> with the steps below.</span>,
           <span>Open it from the toolbar and choose <b>Connect</b>. It shows a 6 character code.</span>,
           <span>APM asks you to confirm. Check that the codes match, then choose <b>Connect</b>.</span>
@@ -67,7 +66,7 @@ export function Passkeys() {
       </Card>
       <Card title="Use it without the app" description="Link the browser once and the extension keeps working while APM is closed." cli="pm extension link"
         footer={<A.Button size="sm" variant="ghost" icon="timer" onClick={() => ui.go({ view: "settings", section: "sessions" })}>Auto-lock settings</A.Button>}>
-        <Steps items={[
+        <A.StepList items={[
           <span>In a terminal, run <span className="mono-inline">pm extension link</span>. It registers pm with Chrome, Edge, Arc and Brave on this Mac.</span>,
           <span>If the extension isn't connected yet, it shows a code and pm asks you to confirm it. You do this once.</span>,
           <span>When this app is closed, the browser starts pm on its own. Unlock from the toolbar. The vault still locks on your Auto-lock settings.</span>
@@ -78,8 +77,8 @@ export function Passkeys() {
         <div className="token-box"><Masked value={b.token} keep={6} /></div>
       </Card>
       <Card title="Install the extension" description="Chrome, Edge, Arc and Brave. Build it from the APM repository, then load it unpacked.">
-        <Steps items={[
-          <>In the APM repository, build the extension.<CodeBlock label="Terminal">cd extension && npm install && npm run build</CodeBlock></>,
+        <A.StepList items={[
+          <>In the APM repository, build the extension.<A.CodeBlock label="Terminal">cd extension && npm install && npm run build</A.CodeBlock></>,
           <span>Open <span className="mono-inline">chrome://extensions</span> and turn on <b>Developer mode</b>.</span>,
           <span>Choose <b>Load unpacked</b> and select the <span className="mono-inline">extension/dist</span> folder.</span>,
           <span>Pin <b>APM for Chrome</b> to the toolbar, then connect it above.</span>
@@ -87,7 +86,7 @@ export function Passkeys() {
       </Card>
       <Card title="Saved passkeys" description="The private key is stored encrypted inside the item it belongs to." flush
         actions={all.length > 4 ? <A.SearchField size="sm" placeholder="Filter passkeys" value={q} onChange={setQ} shortcut={null} /> : null}>
-        {shown.length === 0 && <div className="card-empty">{all.length ? "No passkeys match." : "No passkeys yet. Create one on any site with the extension installed."}</div>}
+        {shown.length === 0 && <div className="apm-card-empty">{all.length ? "No passkeys match." : "No passkeys yet. Create one on any site with the extension installed."}</div>}
         {shown.map(({ it, p }) => (
           <div key={p.credentialId || p.id} className="pk">
             <span className="pk-icon"><A.Icon name="fingerprint" size={16} /></span>

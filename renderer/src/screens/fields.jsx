@@ -227,7 +227,7 @@ function FileEdit({ def, label, value, onChange }) {
       <span className="apm-label">{label}</span>
       <input ref={ref} type="file" hidden accept={def.accept} onChange={(e) => take(e.target.files[0])} />
       <A.FileDrop file={value ? { name: value.name, size: value.size, detail: fmtSize(value.size) + " · click to replace" } : null} title="Drop a file or click to choose" hint="Encrypted into the vault. The original stays where it is; delete it yourself." onChoose={() => ref.current.click()} onDrop={take} />
-      {err && <div className="apm-hint apm-hint-danger"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+      {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
     </div>
   );
 }

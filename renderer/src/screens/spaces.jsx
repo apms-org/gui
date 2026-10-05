@@ -86,14 +86,11 @@ export function MoveDialog({ ids, onClose }) {
   return (
     <A.Dialog open onClose={onClose} size="sm" icon="folder" title={ids.length === 1 ? "Move to space" : "Move " + ids.length + " items"} description="Spaces are folders inside this vault. Sync and AI access rules can target a space."
       footer={<><A.Button onClick={onClose}>Cancel</A.Button><A.Button variant="primary" onClick={async () => { const r = await act.moveItems(ids, dest); if (r.ok) { ui.toast({ title: "Moved to " + (dest || "Default") }); ui.setMulti([]); } onClose(); }}>Move</A.Button></>}>
-      <div className="choice-list tight">
+      <A.ChoiceGroup columns={1} compact label="Space" value={dest} onChange={setDest}>
         {[{ name: "", color: 7 }].concat(disk.spaces).map((s) => (
-          <button key={s.name || "default"} type="button" className={U.cx("choice is-row", dest === s.name && "is-selected")} onClick={() => setDest(s.name)} aria-pressed={dest === s.name ? "true" : "false"}>
-            <SpaceDot color={s.color} size={10} /><span className="choice-title">{s.name || "Default"}</span><span className="muted">{disk.items.filter((i) => (i.space || "") === s.name).length}</span>
-            <span className="choice-radio">{dest === s.name && <A.Icon name="check" size={12} strokeWidth={2.75} />}</span>
-          </button>
+          <A.ChoiceTile key={s.name || "default"} variant="list" compact value={s.name} leading={<SpaceDot color={s.color} size={10} />} title={s.name || "Default"} trailing={<span className="muted">{disk.items.filter((i) => (i.space || "") === s.name).length}</span>} />
         ))}
-      </div>
+      </A.ChoiceGroup>
     </A.Dialog>
   );
 }

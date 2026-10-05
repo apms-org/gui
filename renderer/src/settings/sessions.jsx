@@ -3,8 +3,7 @@ import U from "../lib/util.js";
 import { useStore, A as act } from "../lib/store.js";
 import { ui } from "../lib/ui.js";
 import { register } from "../lib/registry.js";
-import { Card, Head, Status, useNow, left, lockMinutes, lockLabel, lockOptions } from "./common.jsx";
-import { CodeBlock } from "../ui/kit.jsx";
+import { Card, Head, useNow, left, lockMinutes, lockLabel, lockOptions } from "./common.jsx";
 
 const cx = U.cx;
 const TTL = [{ value: "15", label: "15 minutes" }, { value: "60", label: "1 hour" }, { value: "240", label: "4 hours" }, { value: "1440", label: "24 hours" }];
@@ -34,7 +33,7 @@ function AutoLock() {
       <A.SettingRow title="Lock after inactivity" description="No keyboard, pointer or browser activity for this long." htmlFor="idle"><A.Select id="idle" size="sm" value={String(idle)} onChange={(v) => pick("inactivity", v)} options={lockOptions(IDLE, st.inactivity)} disabled={disk.readonly} /></A.SettingRow>
       <A.SettingRow title="Maximum session" description="Locks even while you are using it, then asks for your password again." htmlFor="max"><A.Select id="max" size="sm" value={String(max)} onChange={(v) => pick("sessionTimeout", v)} options={lockOptions(MAX, st.sessionTimeout)} disabled={disk.readonly} /></A.SettingRow>
       <A.SettingRow title="Lock when the Mac sleeps" description="Also when the screen locks or the lid closes."><A.Switch label="Lock on sleep" checked={!!st.lockOnSleep} onChange={(v) => act.settings({ lockOnSleep: v })} disabled={disk.readonly} /></A.SettingRow>
-      {warn && <div className="card-pad"><A.Callout tone="warning" icon="triangle-alert" title={warn[0]}>{warn[1]}</A.Callout></div>}
+      {warn && <div className="apm-card-pad"><A.Callout tone="warning" icon="triangle-alert" title={warn[0]}>{warn[1]}</A.Callout></div>}
     </Card>
   );
 }
@@ -74,14 +73,14 @@ export function Sessions() {
       </Card>
       <Card title="Terminal session" description="Unlocking here also unlocks pm in your terminal, and locking here locks it. Both use the same encrypted session file." flush cli="pm unlock">
         <A.SettingRow icon="terminal" title={cli.active ? "pm is unlocked" : "pm is locked"} description={cli.active ? (cli.expires ? "Until " + until(cli.expires) : "No time limit") + (cli.inactivity ? ", or after " + Math.round(cli.inactivity / 60000) + " minutes idle" : "") + (cli.readonly ? " · read-only" : "") : "pm asks for your master password the next time you run it."}>
-          {cli.active ? <Status tone="success">Active</Status> : <Status tone="neutral">Locked</Status>}
+          {cli.active ? <A.Status tone="success">Active</A.Status> : <A.Status tone="neutral">Locked</A.Status>}
         </A.SettingRow>
       </Card>
       <Card title="Ephemeral sessions" description="A scoped, expiring unlock for a process that should never see your master password. Revoke one and it stops working immediately."
         actions={<A.Button size="sm" variant="primary" icon="plus" onClick={() => ui.open("session-issue")}>Issue session</A.Button>} flush cli="pm session issue">
-        {live.length === 0 && <div className="card-empty">No active sessions.</div>}
+        {live.length === 0 && <div className="apm-card-empty">No active sessions.</div>}
         {live.map((x) => <SessionRow key={x.id} x={x} now={now} onRevoke={() => revoke(x)} />)}
-        {dead.length > 0 && <div className="card-sub">Expired and revoked</div>}
+        {dead.length > 0 && <div className="apm-card-label">Expired and revoked</div>}
         {dead.slice(0, 5).map((x) => <SessionRow key={x.id} x={x} now={now} dead />)}
       </Card>
     </>
@@ -137,12 +136,12 @@ function IssueDialog({ onClose }) {
           </div>
           <div className="stack-6"><span className="apm-label">Access</span><A.SegmentedControl label="Access" value={scope} onChange={setScope} options={[{ value: "read", label: "Read only" }, { value: "write", label: "Read and write" }]} /></div>
           <A.Checkbox checked={host} onChange={setHost} label="Bind to this Mac" description="The session fails on any other machine." />
-          {err && <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+          {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
         </div>
       ) : (
         <div className="stack-12">
-          <CodeBlock label="Environment" copy={env} wrap>{env}</CodeBlock>
-          <CodeBlock label="Use it" copy={env + " pm get \"Item name\""} wrap>{env + " pm get \"Item name\""}</CodeBlock>
+          <A.CodeBlock label="Environment" copy={env} wrap>{env}</A.CodeBlock>
+          <A.CodeBlock label="Use it" copy={env + " pm get \"Item name\""} wrap>{env + " pm get \"Item name\""}</A.CodeBlock>
         </div>
       )}
     </A.Dialog>

@@ -1,43 +1,14 @@
 import { A } from "../lib/ds.js";
-import U from "../lib/util.js";
 import { Cli } from "../ui/kit.jsx";
 
-const cx = U.cx;
-
-export function Card({ title, description, actions, children, footer, footNote, danger, flush, className, id, cli }) {
-  return (
-    <section className={cx("card", danger && "is-danger", className)} id={id}>
-      {(title || actions) && (
-        <div className="card-head">
-          <div className="card-head-text">
-            {title && <h3 className="card-title">{title}</h3>}
-            {description && <p className="card-desc">{description}</p>}
-          </div>
-          {actions && <div className="card-actions">{actions}</div>}
-        </div>
-      )}
-      {children != null && <div className={cx("card-body", flush && "is-flush")}>{children}</div>}
-      {(footer || footNote || cli) && (
-        <div className="card-foot">
-          <span className="card-foot-note">{footNote}{cli && <Cli cmd={cli} />}</span>
-          {footer && <div className="card-foot-actions">{footer}</div>}
-        </div>
-      )}
-    </section>
-  );
+// Settings cards and page heads are the design system's Card and PageHeader,
+// with the matching pm command (hidden when "Show pm commands" is off).
+export function Card({ cli, footNote, ...rest }) {
+  return <A.Card {...rest} footNote={footNote || cli ? <>{footNote}{cli && <Cli cmd={cli} />}</> : null} />;
 }
 
-export function Head({ title, description, actions, badge, cli }) {
-  return (
-    <header className="set-head">
-      <div className="set-head-text">
-        <h1 className="set-title">{title}{badge}</h1>
-        {description && <p className="set-desc">{description}</p>}
-        {cli && <div className="set-cli"><Cli cmd={cli} /></div>}
-      </div>
-      {actions && <div className="set-actions">{actions}</div>}
-    </header>
-  );
+export function Head({ cli, ...rest }) {
+  return <A.PageHeader {...rest}>{cli ? <Cli cmd={cli} /> : null}</A.PageHeader>;
 }
 
 export function useNow(ms) {
@@ -76,18 +47,6 @@ export function lockSummary(st) {
   if (st.lockOnSleep) parts.push("when the Mac sleeps");
   if (!parts.length) return "Never locks on its own. Lock it yourself with ⌘L.";
   return "Locks " + (parts.length > 1 ? parts.slice(0, -1).join(", ") + " or " + parts[parts.length - 1] : parts[0]) + ".";
-}
-
-export function Steps({ items }) {
-  return (
-    <ol className="howto">
-      {items.map((x, i) => <li key={i}><span className="howto-n">{i + 1}</span><div className="howto-body">{x}</div></li>)}
-    </ol>
-  );
-}
-
-export function Status({ tone, children, pulse }) {
-  return <span className={cx("status", "is-" + (tone || "neutral"))}><i className={cx(pulse && "is-pulse")} />{children}</span>;
 }
 
 export function Masked({ value, keep = 4, reveal }) {

@@ -121,14 +121,14 @@ export function Detail({ item: it, analysis }) {
             <A.FieldGroup>
               {fields.map((f) => <FieldView key={f.key} def={f} value={it.f[f.key]} item={it} clip={clip} onUseCode={(c) => act.useCode(it.id, c)} />)}
               {tot && !tot.own && <A.SecretField label="One-time code" icon="timer" totp={tot.f.secret.replace(/\s/g, "")} onCopy={(l, v) => copied(l, v, true, clip)} extra={<A.IconButton icon="link-2" label={"From Authenticator: " + titleOf(tot)} onClick={() => ui.select(tot.id)} />} />}
-              {login && <A.SecretField label="Used by" icon="link-2" value={<button type="button" className="linkbtn" onClick={() => ui.select(login.id)}>{titleOf(login)} login</button>} copyable={false} />}
-              {!fields.some((f) => it.f[f.key] && (!Array.isArray(it.f[f.key]) || it.f[f.key].length)) && !tot && <div className="fields-empty">No details yet. <button type="button" className="linkbtn" onClick={() => ui.edit(it.id)}>Add some</button></div>}
+              {login && <A.SecretField label="Used by" icon="link-2" value={<A.Button variant="link" onClick={() => ui.select(login.id)}>{titleOf(login)} login</A.Button>} copyable={false} />}
+              {!fields.some((f) => it.f[f.key] && (!Array.isArray(it.f[f.key]) || it.f[f.key].length)) && !tot && <div className="fields-empty">No details yet. <A.Button variant="link" onClick={() => ui.edit(it.id)}>Add some</A.Button></div>}
             </A.FieldGroup>
             {it.passkeys && it.passkeys.length > 0 && <Passkeys it={it} />}
             <div className="meta-foot">
               {it.created > 0 && <span>Created {U.date(it.created)}</span>}
               {it.modified > 0 && <span>Modified {U.agoLong(it.modified)}</span>}
-              {(it.versions || []).length > 0 ? <button type="button" className="linkbtn" onClick={() => setTab("versions")}><A.Icon name="history" size={12} />{U.n(it.versions.length, "earlier version")}</button> : <span>No earlier versions</span>}
+              {(it.versions || []).length > 0 ? <A.Button variant="link" onClick={() => setTab("versions")}><A.Icon name="history" size={12} />{U.n(it.versions.length, "earlier version")}</A.Button> : <span>No earlier versions</span>}
               <span className={"trust-inline is-" + trust.level}>Trust {trust.score}</span>
             </div>
           </>}
@@ -237,14 +237,14 @@ function Meta({ it, trust }) {
             <A.Switch checked={!!it.exposed} onChange={(v) => act.patchMeta(it.id, { exposed: v }, (v ? "Marked " : "Unmarked ") + titleOf(it) + " as exposed")} label="Exposed" />
           </A.SettingRow>
         </A.FieldGroup>
-        <div className="kv-list kv-card">
-          <div className="kv"><div className="kv-label">Space</div><div className="kv-value"><SpaceChip name={it.space} disk={disk} /></div></div>
-          <div className="kv"><div className="kv-label">Created</div><div className="kv-value">{it.created ? U.dateTime(it.created) : "Before APM tracked it"} by {byAi(it) ? "an AI client" : "you"}</div></div>
-          <div className="kv"><div className="kv-label">Last used</div><div className="kv-value">{it.used ? U.agoLong(it.used) : "Never"} · {it.uses} time{it.uses === 1 ? "" : "s"}</div></div>
-          <div className="kv"><div className="kv-label">Last rotated</div><div className="kv-value">{it.rotated || it.created ? U.date(it.rotated || it.created) + " · " + trust.ageDays + " days" : "Unknown"}</div></div>
-          <div className="kv"><div className="kv-label">Category key</div><div className="kv-value is-mono">{it.type}|{titleOf(it)}|{it.space || "default"}</div></div>
-          <div className="kv"><div className="kv-label">Item ID</div><div className="kv-value is-mono">{it.id}</div></div>
-        </div>
+        <A.KeyValueList className="kv-card">
+          <A.KeyValue label="Space"><SpaceChip name={it.space} disk={disk} /></A.KeyValue>
+          <A.KeyValue label="Created">{it.created ? U.dateTime(it.created) : "Before APM tracked it"} by {byAi(it) ? "an AI client" : "you"}</A.KeyValue>
+          <A.KeyValue label="Last used">{it.used ? U.agoLong(it.used) : "Never"} · {it.uses} time{it.uses === 1 ? "" : "s"}</A.KeyValue>
+          <A.KeyValue label="Last rotated">{it.rotated || it.created ? U.date(it.rotated || it.created) + " · " + trust.ageDays + " days" : "Unknown"}</A.KeyValue>
+          <A.KeyValue label="Category key" mono>{it.type}|{titleOf(it)}|{it.space || "default"}</A.KeyValue>
+          <A.KeyValue label="Item ID" mono>{it.id}</A.KeyValue>
+        </A.KeyValueList>
       </div>
       <div className="section">
         <div className="section-h"><span>Activity</span><span className="muted">From the signed in-vault history</span></div>
@@ -309,7 +309,7 @@ function EditItem({ it }) {
             <A.Select label="Space" icon="layers" value={space} onChange={setSpace} options={[{ value: "", label: "Default" }].concat(disk.spaces.map((s) => ({ value: s.name, label: s.name })))} />
           </div>
           {it.type === "password" && <EditPasskeys it={it} />}
-          {err && <div className="apm-hint apm-hint-danger apm-hint-enter"><A.Icon name="triangle-alert" size={14} />{err}</div>}
+          {err && <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>}
           <p className="help">Saving keeps the current values as a version you can restore. Press <A.Kbd keys={["⌘", "S"]} /> to save, <A.Kbd keys={["Esc"]} /> to cancel.</p>
         </div>
       </div>

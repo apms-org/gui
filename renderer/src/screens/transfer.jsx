@@ -173,7 +173,7 @@ function PasswordStep({ label, pw, setPw, busy, err, onSubmit }) {
 
 function ErrorLine({ err }) {
   if (!err) return null;
-  return <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{err}</div>;
+  return <A.Hint tone="danger" icon="triangle-alert">{err}</A.Hint>;
 }
 
 // Import
@@ -315,7 +315,7 @@ function ImportDialog({ from: initialFrom, onClose }) {
         <div className="xfer-file">
           <A.ItemIcon name={res.formatLabel} size="sm" icon={res.encrypted ? "lock" : "file"} />
           <span className="ellipsis"><b>{res.fileName || (fs.file && fs.file.name)}</b> <span className="muted">· {res.formatLabel}</span></span>
-          <button type="button" className="linkbtn" onClick={() => setStep("source")}>Choose another file</button>
+          <A.Button variant="link" onClick={() => setStep("source")}>Choose another file</A.Button>
         </div>
         {(res.warnings || []).map((w, i) => <A.Callout key={i} tone="warning">{w}</A.Callout>)}
         <A.StatGroup label="What this file brings" items={[
@@ -501,7 +501,7 @@ function ExportDialog({ ids, onClose }) {
       )}
       {plainSecrets && sum && sum.items > 0 && <A.Callout tone="danger" title="This file will be readable by anyone">Anything that can read the folder you save it to can read every exported secret{sum.passkeys ? " and sign in with its passkeys" : ""}.</A.Callout>}
       <ErrorLine err={err} />
-      <div><button type="button" className="linkbtn" onClick={() => ui.open("compare")}><A.Icon name="arrow-up-down" size={13} />Compare your vault with an earlier export</button></div>
+      <div><A.Button variant="link" onClick={() => ui.open("compare")}><A.Icon name="arrow-up-down" size={13} />Compare your vault with an earlier export</A.Button></div>
     </A.Dialog>
   );
 }

@@ -121,7 +121,7 @@ export function Vault({ analysis }) {
         {multi.length > 0 && (
           <div className="bulkbar">
             <span><b>{multi.length}</b> selected</span>
-            <button type="button" className="linkbtn" onClick={() => ui.setMulti([])}>Clear</button>
+            <A.Button variant="link" onClick={() => ui.setMulti([])}>Clear</A.Button>
           </div>
         )}
         <div className="list-scroll" role="listbox" aria-label={filterLabel(filter, disk)} aria-multiselectable="true">

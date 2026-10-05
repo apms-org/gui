@@ -3,7 +3,6 @@ import U from "../lib/util.js";
 import { A as act, useStore } from "../lib/store.js";
 import { PROFILES, CIPHERS, recommendProfile, describe, PASSWORD_RULES } from "../lib/profiles.js";
 import { saveFile } from "../lib/ui.js";
-import { Stepper, Choice, Kv } from "../ui/kit.jsx";
 
 const cx = U.cx;
 
@@ -23,7 +22,7 @@ function AuthFrame({ children, footer, wide, grid = true }) {
 
 function ErrorLine({ children }) {
   if (!children) return null;
-  return <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{children}</div>;
+  return <A.Hint tone="danger" icon="triangle-alert">{children}</A.Hint>;
 }
 
 export function OtpInput({ length = 6, value, onChange, invalid, autoFocus }) {
@@ -79,9 +78,9 @@ export function Welcome({ onCreate, onRestore, onOpen, onBack }) {
       <h1 className="display auth-title">Welcome to APM</h1>
       <p className="auth-sub">One encrypted vault for every secret you have. It lives on this Mac, and only you can open it.</p>
       <div className="welcome-choices">
-        <Choice arrow icon="plus" title="Create a new vault" description="Set a master password and pick how hard the key is to crack." onClick={onCreate} />
-        <Choice arrow icon="folder-open" title="Open an existing vault" description="Choose a vault.dat made by pm or another Mac." onClick={onOpen} />
-        <Choice arrow icon="cloud-upload" title="Restore from cloud" description="Download your vault from Google Drive, GitHub or Dropbox." onClick={onRestore} />
+        <A.ChoiceTile variant="list" arrow icon="plus" title="Create a new vault" description="Set a master password and pick how hard the key is to crack." onClick={onCreate} />
+        <A.ChoiceTile variant="list" arrow icon="folder-open" title="Open an existing vault" description="Choose a vault.dat made by pm or another Mac." onClick={onOpen} />
+        <A.ChoiceTile variant="list" arrow icon="cloud-upload" title="Restore from cloud" description="Download your vault from Google Drive, GitHub or Dropbox." onClick={onRestore} />
       </div>
       {onBack && <button type="button" className="auth-link" onClick={onBack}><A.Icon name="arrow-left" size={14} />Back to {onBack.label || "your vault"}</button>}
     </AuthFrame>
@@ -116,10 +115,10 @@ export function OpenVault({ onCancel }) {
         <p className="auth-sub">APM works on one vault.dat at a time. pm uses the same file when you point it there with APM_VAULT_PATH or --vault.</p>
       </div>
       <div className="rec-card">
-        <div className="kv-list">
-          <Kv label="Current file" mono>{tildify(status.path) || "none"}</Kv>
-          <Kv label="State">{status.exists ? "Vault found" : "No vault at this path yet"}</Kv>
-        </div>
+        <A.KeyValueList>
+          <A.KeyValue label="Current file" mono>{tildify(status.path) || "none"}</A.KeyValue>
+          <A.KeyValue label="State">{status.exists ? "Vault found" : "No vault at this path yet"}</A.KeyValue>
+        </A.KeyValueList>
         <ErrorLine>{err}</ErrorLine>
         <div className="rec-foot">
           <A.Button variant="ghost" icon="arrow-left" onClick={onCancel} disabled={busy}>Back</A.Button>
@@ -221,12 +220,12 @@ export function Setup({ onCancel }) {
     </div>,
     <div className="stack-20" key="sec">
       <div className="hw"><A.Icon name="cpu" size={16} /><span>This Mac has <b>{cores} cores</b> and <b>{ram} GB</b> of memory, so APM recommends <b>{PROFILES[rec].name}</b>.</span></div>
-      <div className="choice-list">
+      <A.ChoiceGroup columns={1} label="Encryption profile">
         {["standard", "hardened", "paranoid"].map((id) => { const p = PROFILES[id]; return (
-          <Choice key={id} selected={profile === id} onClick={() => { setProfile(id); setCipher(p.cipher); }} icon={id === "standard" ? "shield" : id === "hardened" ? "shield-check" : "lock-keyhole"} title={p.name} badge={id === rec ? <A.Badge tone="accent" size="sm">Recommended</A.Badge> : null} description={p.blurb} meta={describe(p) + " · unlock " + p.unlock} />
+          <A.ChoiceTile variant="list" key={id} selected={profile === id} onClick={() => { setProfile(id); setCipher(p.cipher); }} icon={id === "standard" ? "shield" : id === "hardened" ? "shield-check" : "lock-keyhole"} title={p.name} badge={id === rec ? <A.Badge tone="accent" size="sm">Recommended</A.Badge> : null} description={p.blurb} meta={describe(p) + " · unlock " + p.unlock} />
         ); })}
-        <Choice selected={profile === "custom"} onClick={() => setProfile("custom")} icon="sliders-horizontal" title="Custom" description="Set Argon2id memory, time, threads, salt and nonce yourself." meta={profile === "custom" ? describe(custom) : null} />
-      </div>
+        <A.ChoiceTile variant="list" selected={profile === "custom"} onClick={() => setProfile("custom")} icon="sliders-horizontal" title="Custom" description="Set Argon2id memory, time, threads, salt and nonce yourself." meta={profile === "custom" ? describe(custom) : null} />
+      </A.ChoiceGroup>
       {profile === "custom" && (
         <div className="custom-profile">
           <div className="slider-row"><label htmlFor="cp-mem">Memory</label><A.Slider id="cp-mem" label="Memory" min={32} max={1024} step={32} value={custom.memory} onChange={(v) => setCustom({ ...custom, memory: v })} /><span className="mono">{custom.memory} MiB</span></div>
@@ -272,14 +271,14 @@ export function Setup({ onCancel }) {
     </div>,
     <div className="stack-20" key="review">
       <A.FieldGroup>
-        <div className="kv-list">
-          <Kv label="Vault file" mono>{tildify(status.path)}</Kv>
-          <Kv label="Profile">{profile === "custom" ? "Custom" : P.name} <span className="muted">· {describe(P)}</span></Kv>
-          <Kv label="Cipher" mono>{chosenCipher}</Kv>
-          <Kv label="Spaces">{["Default"].concat(spaces).join(", ")}</Kv>
-          <Kv label="Touch ID">{touchId && tidAvailable ? "On" : "Off"}</Kv>
-          <Kv label="Lock">{"After " + inactivity + " min idle, " + (Number(timeout) >= 60 ? Number(timeout) / 60 + " h" : timeout + " min") + " max"}</Kv>
-        </div>
+        <A.KeyValueList>
+          <A.KeyValue label="Vault file" mono>{tildify(status.path)}</A.KeyValue>
+          <A.KeyValue label="Profile">{profile === "custom" ? "Custom" : P.name} <span className="muted">· {describe(P)}</span></A.KeyValue>
+          <A.KeyValue label="Cipher" mono>{chosenCipher}</A.KeyValue>
+          <A.KeyValue label="Spaces">{["Default"].concat(spaces).join(", ")}</A.KeyValue>
+          <A.KeyValue label="Touch ID">{touchId && tidAvailable ? "On" : "Off"}</A.KeyValue>
+          <A.KeyValue label="Lock">{"After " + inactivity + " min idle, " + (Number(timeout) >= 60 ? Number(timeout) / 60 + " h" : timeout + " min") + " max"}</A.KeyValue>
+        </A.KeyValueList>
       </A.FieldGroup>
       {(creating || created) && <div className="derive"><div className="derive-row"><b>{created ? "Vault created" : "Deriving your key"}</b><span className="mono-small">{describe(P)}</span></div><A.Progress value={progress * 100} /></div>}
       {!creating && !created && <p className="help">Recovery and sync come next. Both are optional.</p>}
@@ -318,12 +317,12 @@ export function Setup({ onCancel }) {
     </div>,
     <div className="stack-20" key="sync">
       <p className="help-lg">Sync uploads only the sealed vault file. Providers never see your master password or your items.</p>
-      <div className="choice-list">
-        <Choice selected={provider === "none"} onClick={() => setProvider("none")} icon="hard-drive" title="Keep it on this Mac" description="No network. You can add a provider any time." />
-        <Choice selected={provider === "github"} onClick={() => setProvider("github")} icon="git-branch" title="GitHub" description="Commits vault.dat to a private repository you own." />
-        <Choice selected={provider === "gdrive"} onClick={() => setProvider("gdrive")} icon="cloud" title="Google Drive" description="Your own Drive, through a browser sign-in." />
-        <Choice selected={provider === "dropbox"} onClick={() => setProvider("dropbox")} icon="archive" title="Dropbox" description="Your own Dropbox app, through a browser sign-in." />
-      </div>
+      <A.ChoiceGroup columns={1} label="Sync provider">
+        <A.ChoiceTile variant="list" selected={provider === "none"} onClick={() => setProvider("none")} icon="hard-drive" title="Keep it on this Mac" description="No network. You can add a provider any time." />
+        <A.ChoiceTile variant="list" selected={provider === "github"} onClick={() => setProvider("github")} icon="git-branch" title="GitHub" description="Commits vault.dat to a private repository you own." />
+        <A.ChoiceTile variant="list" selected={provider === "gdrive"} onClick={() => setProvider("gdrive")} icon="cloud" title="Google Drive" description="Your own Drive, through a browser sign-in." />
+        <A.ChoiceTile variant="list" selected={provider === "dropbox"} onClick={() => setProvider("dropbox")} icon="archive" title="Dropbox" description="Your own Dropbox app, through a browser sign-in." />
+      </A.ChoiceGroup>
       {provider === "github" && <div className="stack-12">
         <A.Input label="Repository" placeholder="owner/repo" icon="git-branch" value={repo} onChange={(e) => setRepo(e.target.value)} hint="A private repository you own." />
         <A.Input label="Personal access token" type="password" placeholder="github_pat_..." icon="key-round" value={token} onChange={(e) => setToken(e.target.value)} hint="Contents: read and write on that repository." />
@@ -357,9 +356,9 @@ export function Setup({ onCancel }) {
             <h1 className="setup-title">Your vault is ready</h1>
             <p className="setup-desc">Encrypted with {describe(P)} and {chosenCipher}. Here is what most people do next.</p>
             <div className="next-grid">
-              <Choice arrow icon="download" title="Import passwords" description="From a CSV, JSON or otpauth export." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:open", { detail: { name: "import" } })), 50); }} />
-              <Choice arrow icon="plus" title="Add your first item" description="A login, a card, an SSH key, anything." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:open", { detail: { name: "new" } })), 50); }} />
-              <Choice arrow icon="puzzle" title="Connect the browser extension" description="Fill logins, codes and passkeys in Chrome, Arc or Brave." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:go", { detail: { view: "settings", section: "passkeys" } })), 50); }} />
+              <A.ChoiceTile variant="list" arrow icon="download" title="Import passwords" description="From a CSV, JSON or otpauth export." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:open", { detail: { name: "import" } })), 50); }} />
+              <A.ChoiceTile variant="list" arrow icon="plus" title="Add your first item" description="A login, a card, an SSH key, anything." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:open", { detail: { name: "new" } })), 50); }} />
+              <A.ChoiceTile variant="list" arrow icon="puzzle" title="Connect the browser extension" description="Fill logins, codes and passkeys in Chrome, Arc or Brave." onClick={() => { act.enter(); setTimeout(() => window.dispatchEvent(new CustomEvent("apm:go", { detail: { view: "settings", section: "passkeys" } })), 50); }} />
             </div>
             <A.Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => act.enter()}>Open vault</A.Button>
           </div>
@@ -613,7 +612,7 @@ export function Recovery({ onDone, onCancel }) {
         <h1 className="title-1">{done ? "You are back in" : "Recover your vault"}</h1>
         <p className="auth-sub">{done ? "Your master password has been reset. Update Touch ID in Settings, Security if you use it." : mode === "key" ? "Prove it is you with your recovery email, recovery key and a second factor." : "Combine " + r.quorum.threshold + " of your " + r.quorum.shares + " trustee shares."}</p>
       </div>
-      {!done && <Stepper steps={steps} current={idx} />}
+      {!done && <A.Stepper layout="spread" items={steps} value={steps[idx]} />}
       {done ? (
         <A.Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => { act.enter(); onDone(); }}>Open vault</A.Button>
       ) : (
@@ -698,7 +697,7 @@ export function CloudRestore({ onCancel, onDone }) {
         <h1 className="title-1">Restore from cloud</h1>
         <p className="auth-sub">APM downloads the sealed vault file, then asks for the master password it was created with.</p>
       </div>
-      <Stepper steps={["Find your vault", "Unlock it"]} current={step} />
+      <A.Stepper layout="spread" items={["Find your vault", "Unlock it"]} value={["Find your vault", "Unlock it"][step]} />
       <div className="rec-card">
         {step === 0 ? (
           <div className="stack-16">

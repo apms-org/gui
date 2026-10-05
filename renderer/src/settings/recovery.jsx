@@ -11,7 +11,7 @@ const cx = U.cx;
 
 function ErrorLine({ children }) {
   if (!children) return null;
-  return <div className="apm-hint apm-hint-danger apm-hint-enter" role="alert"><A.Icon name="triangle-alert" size={14} />{children}</div>;
+  return <A.Hint tone="danger" icon="triangle-alert">{children}</A.Hint>;
 }
 
 export function RecoverySettings() {
@@ -103,7 +103,7 @@ function EmailDialog({ onClose }) {
       {step === 0 ? <form onSubmit={(e) => { e.preventDefault(); if (valid) send(); }}><A.Input label="Email" type="email" icon="mail" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus placeholder="you@example.com" /></form> : (
         <div className="stack-16">
           <OtpInput value={typed} onChange={setTyped} invalid={!!err} autoFocus />
-          <button type="button" className="linkbtn" onClick={send} disabled={busy}>Send a new code</button>
+          <A.Button variant="link" onClick={send} disabled={busy}>Send a new code</A.Button>
         </div>
       )}
       <ErrorLine>{err}</ErrorLine>

@@ -17,7 +17,7 @@ export declare function Kbd(props: KbdProps): React.ReactElement;
 export interface CommandProps { cmd: string; prompt?: string; block?: boolean; label?: string; onCopy?: (cmd: string) => void; className?: string }
 export declare function Command(props: CommandProps): React.ReactElement | null;
 
-export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'> { variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'md' | 'lg'; icon?: IconName; iconRight?: IconName; kbd?: string | string[]; loading?: boolean; block?: boolean; href?: string; type?: 'button' | 'submit' | 'reset' }
+export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'> { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'link'; size?: 'sm' | 'md' | 'lg'; icon?: IconName; iconRight?: IconName; kbd?: string | string[]; loading?: boolean; block?: boolean; href?: string; type?: 'button' | 'submit' | 'reset' }
 export declare const Button: React.ForwardRefExoticComponent<ButtonProps & React.RefAttributes<HTMLButtonElement | HTMLAnchorElement>>;
 
 export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> { icon: IconName; label: string; size?: 'xs' | 'sm' | 'md'; variant?: 'ghost' | 'secondary'; active?: boolean; filled?: boolean; tone?: 'success'; href?: string }
@@ -120,7 +120,7 @@ export interface FileDropProps { file?: FileDropFile | null; title?: React.React
 export declare function FileDrop(props: FileDropProps): React.ReactElement;
 
 export interface StepItem { value: string; label: React.ReactNode }
-export interface StepperProps { items: Array<string | StepItem>; value?: string; onChange?: (value: string) => void; label?: string; className?: string }
+export interface StepperProps { items: Array<string | StepItem>; value?: string; onChange?: (value: string) => void; label?: string; layout?: 'inline' | 'spread'; className?: string }
 export declare function Stepper(props: StepperProps): React.ReactElement;
 
 export interface StatItem { key?: string; label: React.ReactNode; value: React.ReactNode; tone?: Tone; icon?: IconName; active?: boolean; onClick?: () => void }
@@ -131,19 +131,48 @@ export interface CompareRow { key: string; label: React.ReactNode; left?: React.
 export interface CompareTableProps { columns?: { left: React.ReactNode; right: React.ReactNode }; rows: CompareRow[]; revealAll?: boolean; className?: string }
 export declare function CompareTable(props: CompareTableProps): React.ReactElement;
 
-export interface ChoiceGroupProps { value?: string; onChange?: (value: string) => void; label?: string; columns?: number; children?: React.ReactNode; className?: string }
+export interface ChoiceGroupProps { value?: string; onChange?: (value: string) => void; label?: string; columns?: number; compact?: boolean; children?: React.ReactNode; className?: string }
 export declare function ChoiceGroup(props: ChoiceGroupProps): React.ReactElement;
-export interface ChoiceTileProps { value?: string; icon?: IconName; tile?: ItemIconProps; title: React.ReactNode; description?: React.ReactNode; meta?: React.ReactNode; selected?: boolean; disabled?: boolean; onSelect?: (value?: string) => void; className?: string }
+export interface ChoiceTileProps { value?: string; icon?: IconName; tile?: ItemIconProps; leading?: React.ReactNode; title: React.ReactNode; badge?: React.ReactNode; description?: React.ReactNode; meta?: React.ReactNode; trailing?: React.ReactNode; children?: React.ReactNode; selected?: boolean; disabled?: boolean; arrow?: boolean; variant?: 'tile' | 'list'; compact?: boolean; onSelect?: (value?: string) => void; onClick?: (value?: string) => void; className?: string }
 export declare function ChoiceTile(props: ChoiceTileProps): React.ReactElement;
 
 export interface ReviewRowProps { title: string; subtitle?: React.ReactNode; name?: string; letter?: string; icon?: IconName; src?: string; solid?: boolean; checked?: boolean; onCheck?: (checked: boolean) => void; disabled?: boolean; badges?: React.ReactNode; trailing?: React.ReactNode; tone?: 'warning' | 'danger'; expanded?: boolean; onToggle?: () => void; children?: React.ReactNode; className?: string }
 export declare function ReviewRow(props: ReviewRowProps): React.ReactElement;
+
+export interface HintProps { tone?: 'warning' | 'danger' | null; icon?: IconName; children?: React.ReactNode; className?: string }
+export declare function Hint(props: HintProps): React.ReactElement;
+
+export interface PageHeaderProps { title: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode; badge?: React.ReactNode; size?: 'md' | 'lg'; children?: React.ReactNode; className?: string }
+export declare function PageHeader(props: PageHeaderProps): React.ReactElement;
+
+export interface CardProps { title?: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode; footer?: React.ReactNode; footNote?: React.ReactNode; danger?: boolean; flush?: boolean; id?: string; children?: React.ReactNode; className?: string; style?: React.CSSProperties }
+export declare function Card(props: CardProps): React.ReactElement;
+
+export interface KeyValueListProps { children?: React.ReactNode; className?: string; style?: React.CSSProperties }
+export declare function KeyValueList(props: KeyValueListProps): React.ReactElement;
+export interface KeyValueProps { label: React.ReactNode; mono?: boolean; copy?: string | false; children?: React.ReactNode; className?: string }
+export declare function KeyValue(props: KeyValueProps): React.ReactElement;
+
+export interface StatusProps { tone?: Tone; pulse?: boolean; children?: React.ReactNode; className?: string }
+export declare function Status(props: StatusProps): React.ReactElement;
+
+export interface ChipProps { selected?: boolean; icon?: IconName; disabled?: boolean; onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void; title?: string; children?: React.ReactNode; className?: string }
+export declare function Chip(props: ChipProps): React.ReactElement;
+
+export interface CodeBlockProps { children: string; label?: React.ReactNode; copy?: string | boolean; wrap?: boolean; maxHeight?: number | string; className?: string }
+export declare function CodeBlock(props: CodeBlockProps): React.ReactElement;
+
+export interface StepListProps { items: React.ReactNode[]; className?: string }
+export declare function StepList(props: StepListProps): React.ReactElement;
+
+export interface MeterProps { value: number; max?: number; tone?: Tone; size?: number; stroke?: number; label?: React.ReactNode; sub?: React.ReactNode; className?: string }
+export declare function Meter(props: MeterProps): React.ReactElement;
 
 export declare function totp(secret: string, period?: number, digits?: number, at?: number): Promise<string>;
 export declare function copyText(text: string): Promise<void>;
 
 declare global {
   interface Window {
-    APM: { Icon: typeof Icon; Mark: typeof Mark; Spinner: typeof Spinner; Kbd: typeof Kbd; Command: typeof Command; Button: typeof Button; IconButton: typeof IconButton; Tooltip: typeof Tooltip; Input: typeof Input; PasswordInput: typeof PasswordInput; SearchField: typeof SearchField; Select: typeof Select; Textarea: typeof Textarea; Checkbox: typeof Checkbox; Switch: typeof Switch; SegmentedControl: typeof SegmentedControl; Tabs: typeof Tabs; Slider: typeof Slider; Badge: typeof Badge; ItemIcon: typeof ItemIcon; Avatar: typeof Avatar; NavItem: typeof NavItem; ItemRow: typeof ItemRow; FieldGroup: typeof FieldGroup; SecretField: typeof SecretField; SettingRow: typeof SettingRow; TotpCode: typeof TotpCode; StrengthMeter: typeof StrengthMeter; Progress: typeof Progress; Callout: typeof Callout; EmptyState: typeof EmptyState; Toast: typeof Toast; Dialog: typeof Dialog; Menu: typeof Menu; MenuList: typeof MenuList; CommandMenu: typeof CommandMenu; FileDrop: typeof FileDrop; Stepper: typeof Stepper; StatGroup: typeof StatGroup; CompareTable: typeof CompareTable; ChoiceGroup: typeof ChoiceGroup; ChoiceTile: typeof ChoiceTile; ReviewRow: typeof ReviewRow; icons: IconName[]; totp: typeof totp; copyText: typeof copyText };
+    APM: { Icon: typeof Icon; Mark: typeof Mark; Spinner: typeof Spinner; Kbd: typeof Kbd; Command: typeof Command; Button: typeof Button; IconButton: typeof IconButton; Tooltip: typeof Tooltip; Input: typeof Input; PasswordInput: typeof PasswordInput; SearchField: typeof SearchField; Select: typeof Select; Textarea: typeof Textarea; Checkbox: typeof Checkbox; Switch: typeof Switch; SegmentedControl: typeof SegmentedControl; Tabs: typeof Tabs; Slider: typeof Slider; Badge: typeof Badge; ItemIcon: typeof ItemIcon; Avatar: typeof Avatar; NavItem: typeof NavItem; ItemRow: typeof ItemRow; FieldGroup: typeof FieldGroup; SecretField: typeof SecretField; SettingRow: typeof SettingRow; TotpCode: typeof TotpCode; StrengthMeter: typeof StrengthMeter; Progress: typeof Progress; Callout: typeof Callout; EmptyState: typeof EmptyState; Toast: typeof Toast; Dialog: typeof Dialog; Menu: typeof Menu; MenuList: typeof MenuList; CommandMenu: typeof CommandMenu; FileDrop: typeof FileDrop; Stepper: typeof Stepper; StatGroup: typeof StatGroup; CompareTable: typeof CompareTable; ChoiceGroup: typeof ChoiceGroup; ChoiceTile: typeof ChoiceTile; ReviewRow: typeof ReviewRow; Hint: typeof Hint; PageHeader: typeof PageHeader; Card: typeof Card; KeyValueList: typeof KeyValueList; KeyValue: typeof KeyValue; Status: typeof Status; Chip: typeof Chip; CodeBlock: typeof CodeBlock; StepList: typeof StepList; Meter: typeof Meter; icons: IconName[]; totp: typeof totp; copyText: typeof copyText };
   }
 }
