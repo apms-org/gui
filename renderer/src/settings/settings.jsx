@@ -33,10 +33,10 @@ export const SECTIONS = [
   ] },
   { group: "Data", items: [
     { id: "import", label: "Import and export", icon: "arrow-up-down", keys: "import export csv json bitwarden 1password backup" },
-    { id: "developer", label: "Developer", icon: "terminal", keys: "inject env apminject shell cli zsh completions" },
+    { id: "developer", label: "Developer", icon: "terminal", keys: "inject env apminject shell cli zsh completions command line pm install uninstall terminal engine path usr local bin" },
     { id: "maintenance", label: "Maintenance", icon: "eraser", keys: "cleanup prune storage destroy reset danger" }
   ] },
-  { group: null, items: [{ id: "about", label: "About", icon: "info", keys: "version license shortcuts prototype" }] }
+  { group: null, items: [{ id: "about", label: "About", icon: "info", keys: "version license shortcuts source documentation" }] }
 ];
 const ALL = SECTIONS.flatMap((g) => g.items);
 

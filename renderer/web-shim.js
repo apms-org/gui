@@ -45,6 +45,10 @@
         getVaultPath: function () { return unwrap(native.app.getVaultPath()); },
         defaultVaultPath: function () { return unwrap(native.app.defaultVaultPath()); },
         setVaultPath: function (path) { return unwrap(native.app.setVaultPath(path)); },
+        cliStatus: function () { return unwrap(native.app.cliStatus()); },
+        installCli: function () { return unwrap(native.app.installCli()); },
+        uninstallCli: function () { return unwrap(native.app.uninstallCli()); },
+        updateCli: function () { return unwrap(native.app.updateCli()); },
         relaunch: function () { return unwrap(native.app.relaunch()); },
         quit: function () { return unwrap(native.app.quit()); }
       }),
@@ -77,6 +81,12 @@
 
   function nativeOp(op, args) {
     return post("/native", { op: op, args: args || [] });
+  }
+
+  var CLI_UNSUPPORTED = "Only the packaged app installs the pm command.";
+
+  function unsupported(message) {
+    return Promise.reject(toError({ code: "unsupported", message: message }));
   }
 
   function ensureSource() {
@@ -130,6 +140,10 @@
       getVaultPath: function () { return nativeOp("app.getVaultPath"); },
       defaultVaultPath: function () { return nativeOp("app.defaultVaultPath"); },
       setVaultPath: function (path) { return nativeOp("app.setVaultPath", [path]); },
+      cliStatus: function () { return Promise.resolve({ supported: false, reason: CLI_UNSUPPORTED, link: "/usr/local/bin/pm", installed: false, bundled: null, version: null, conflict: null }); },
+      installCli: function () { return unsupported(CLI_UNSUPPORTED); },
+      uninstallCli: function () { return unsupported(CLI_UNSUPPORTED); },
+      updateCli: function () { return unsupported(CLI_UNSUPPORTED); },
       relaunch: function () { return nativeOp("app.relaunch"); },
       quit: function () { return nativeOp("app.quit"); }
     }),

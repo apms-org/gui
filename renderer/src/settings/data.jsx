@@ -121,17 +121,68 @@ export function Developer() {
   );
 }
 
+const ENGINE_SOURCE = { bundled: "Inside APM.app", env: "From APM_PM_PATH", dev: "Development build", path: "From your PATH", missing: "Missing" };
+const home = (p) => String(p || "").replace(/^\/Users\/[^/]+/, "~");
+
 function CommandLine() {
   const info = useStore((s) => s.info) || {};
   const status = useStore((s) => s.status) || {};
-  const home = (p) => String(p || "").replace(/^\/Users\/[^/]+/, "~");
+  const app = (window.apm && window.apm.app) || {};
+  const managed = typeof app.cliStatus === "function";
+  const engine = info.engine || { path: info.pmPath || "", source: info.pmPath ? "" : "missing" };
   const env = "export APM_VAULT_PATH=\"" + (status.path || "") + "\"";
   return (
-    <Card title="Command line" flush>
-      <A.SettingRow title="pm used by this app" description={<span className="mono-inline path-wrap">{home(info.pmPath) || "unknown"}</span>}><Status tone={info.pmPath ? "success" : "warning"}>{info.pmPath ? "Found" : "Missing"}</Status></A.SettingRow>
-      <A.SettingRow title="Use this vault from the terminal" description={<span>pm reads <span className="mono-inline">vault.dat</span> next to its binary unless <span className="mono-inline">APM_VAULT_PATH</span> points somewhere else.</span>}><A.Button size="sm" icon="copy" onClick={() => { act.copyValue(env); ui.toast({ title: "Copied the export line", description: "Add it to your shell profile.", tone: "neutral", icon: "copy" }); }}>Copy export</A.Button></A.SettingRow>
+    <Card title="Command line" flush cli="which pm">
+      {managed && <PmCommand app={app} />}
+      {(info.engine || info.pmPath) && <A.SettingRow title="Engine" description={<span className="mono-inline path-wrap">{home(engine.path) || "Not found"}</span>}><Status tone={engine.path && engine.source !== "missing" ? "success" : "warning"}>{ENGINE_SOURCE[engine.source] || (engine.path ? "Found" : "Missing")}</Status></A.SettingRow>}
+      <A.SettingRow title="Use this vault from the terminal" description={<span>pm uses a <span className="mono-inline">vault.dat</span> next to itself if there is one, otherwise <span className="mono-inline">~/.apm/vault.dat</span>. <span className="mono-inline">APM_VAULT_PATH</span> points it anywhere else.</span>}><A.Button size="sm" icon="copy" onClick={() => { act.copyValue(env); ui.toast({ title: "Copied the export line", description: "Add it to your shell profile.", tone: "neutral", icon: "copy" }); }}>Copy export</A.Button></A.SettingRow>
     </Card>
   );
+}
+
+// Checks the pm a terminal runs each time this page opens: install it if there
+// is none, update an older one in one click, or just say it is up to date.
+function PmCommand({ app }) {
+  const [cli, setCli] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const refresh = React.useCallback(async () => {
+    try { setCli((await app.cliStatus()) || { supported: false }); }
+    catch (e) { setCli({ supported: false, reason: (e && e.message) || "Could not check the pm command." }); }
+  }, [app]);
+  React.useEffect(() => { refresh(); }, [refresh]);
+  const run = async (kind) => {
+    setBusy(true);
+    try {
+      if (kind === "install") { await app.installCli(); ui.toast({ title: "Installed the pm command", description: "Open a new terminal window and run pm.", icon: "terminal" }); }
+      else { await app.updateCli(); ui.toast({ title: "Updated pm to " + cli.version, description: "Your terminal now runs this app's engine.", icon: "terminal" }); }
+    } catch (e) {
+      if (!(e && e.code === "cancelled")) ui.toast({ title: (e && e.message) || "Could not " + kind + " the pm command.", tone: "danger", icon: "triangle-alert", duration: 4200 });
+    }
+    setBusy(false);
+    refresh();
+  };
+  const found = (cli && cli.found) || {};
+  const at = <span className="mono-inline">{home(found.path)}</span>;
+  let description, action = null;
+  if (!cli) description = "Checking…";
+  else if (!cli.supported) description = cli.reason || "Not available on this system.";
+  else if (cli.state === "missing") {
+    description = "Not installed. Adds pm to your terminal, linked to this app, so updating APM updates it too.";
+    action = <A.Button size="sm" variant="primary" icon="terminal" loading={busy} onClick={() => run("install")}>Install pm</A.Button>;
+  } else if (cli.state === "outdated") {
+    description = <span>{found.version ? "pm " + found.version : "An older pm"} is installed at {at}. This app has {cli.version}.</span>;
+    action = <A.Button size="sm" variant="primary" icon="refresh-cw" loading={busy} onClick={() => run("update")}>Update pm</A.Button>;
+  } else if (cli.state === "homebrew") {
+    description = <span>pm {found.version} from Homebrew is at {at}. This app has {cli.version}. Homebrew manages it, so upgrade it there.</span>;
+    action = <A.Button size="sm" icon="copy" onClick={() => { act.copyValue("brew upgrade pm"); ui.toast({ title: "Copied brew upgrade pm", description: "Run it in a terminal.", tone: "neutral", icon: "copy" }); }}>Copy command</A.Button>;
+  } else if (cli.state === "newer") {
+    description = <span>pm {found.version} at {at} is newer than this app ({cli.version}). Update APM to match it.</span>;
+    action = <Status tone="warning">Newer than APM</Status>;
+  } else {
+    description = <span>pm {cli.version}{found.path ? <> at {at}</> : null}.</span>;
+    action = <Status tone="success">Up to date</Status>;
+  }
+  return <A.SettingRow icon="terminal" title="pm command" description={description}>{action}</A.SettingRow>;
 }
 
 export function Maintenance() {

@@ -40,7 +40,7 @@ fs.rmSync(path.join(root, "release"), { recursive: true, force: true });
 for (const arch of arches) {
   const outDir = OUT[arch];
   console.log("\nbuilding " + arch + " into release/" + outDir);
-  run(process.execPath, [path.join("scripts", "build-backend.mjs"), "--arch", arch]);
+  run(process.execPath, [path.join("scripts", "build-backend.mjs"), "--release", "--arch", arch, ...(arg("src") ? ["--src", arg("src")] : [])]);
   run(process.execPath, [builderCli, platformFlag,"dir", "--" + arch, "-c.directories.output=release/" + outDir]);
   if (process.platform === "darwin") {
     const nested = path.join(root, "release", outDir, arch === "arm64" ? "mac-arm64" : "mac", APP_NAME);

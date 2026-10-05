@@ -12,7 +12,6 @@ export function General() {
   const prefs = useStore((s) => s.prefs);
   const info = useStore((s) => s.info) || {};
   const status = useStore((s) => s.status) || {};
-  const hello = useStore((s) => s.hello) || {};
   const m = disk.meta;
   const st = disk.settings;
   const [name, setName] = React.useState(m.name);
@@ -42,7 +41,7 @@ export function General() {
         footer={<A.Button size="sm" icon="external-link" onClick={() => openUrl("https://github.com/aaravmaloo/apm/releases")}>See releases</A.Button>}>
         <div className="version-row">
           <A.Mark size={36} tile />
-          <div className="stack-2"><b>APM {info.version || ""}</b><span className="muted small">pm {hello.version || m.version || "desktop backend"} · {info.platform === "darwin" ? "macOS" : info.platform || ""}{info.arch ? " · " + (info.arch === "arm64" ? "Apple silicon" : info.arch) : ""}</span></div>
+          <div className="stack-2"><b>APM {info.version || ""}</b><span className="muted small">{[info.platform === "darwin" ? "macOS" : info.platform, info.arch === "arm64" ? "Apple silicon" : info.arch].filter(Boolean).join(" · ")}</span></div>
         </div>
       </Card>
     </>
@@ -146,7 +145,6 @@ export function Alerts() {
 
 export function About() {
   const info = useStore((s) => s.info) || {};
-  const hello = useStore((s) => s.hello) || {};
   return (
     <>
       <div className="about-hero">
@@ -154,8 +152,7 @@ export function About() {
         <div className="stack-4"><h1 className="set-title">APM</h1><span className="muted">A local-first password and secrets manager for people who live in the terminal.</span></div>
       </div>
       <Card flush>
-        <A.SettingRow title="App version" description="The desktop app"><span className="mono">{info.version || "unknown"}</span></A.SettingRow>
-        <A.SettingRow title="Backend" description={<span className="mono-inline path-wrap">{String(info.pmPath || "").replace(/^\/Users\/[^/]+/, "~")}</span>}><span className="mono">{hello.version ? "pm " + hello.version : "pm desktop"}</span></A.SettingRow>
+        <A.SettingRow title="Version"><span className="mono">{info.version || "unknown"}</span></A.SettingRow>
         <A.SettingRow title="Vault format" description="APMVAULT header, v4 payload"><span className="mono">v4</span></A.SettingRow>
         <A.SettingRow title="License"><span>MIT</span></A.SettingRow>
         <A.SettingRow title="Source"><A.Button size="sm" variant="ghost" iconRight="arrow-up-right" onClick={() => openUrl("https://github.com/aaravmaloo/apm")}>github.com/aaravmaloo/apm</A.Button></A.SettingRow>

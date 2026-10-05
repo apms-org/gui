@@ -1,6 +1,6 @@
 # APM Desktop
 
-The desktop app for [APM](https://github.com/aaravmaloo/apm). It is a native window around the same vault engine the `pm` CLI uses, so the app and the CLI always read and write the same vault file, history and audit log.
+The desktop app for [APM](https://github.com/apms-org/apm). It is a native window around the same vault engine the `pm` CLI uses, so the app and the CLI always read and write the same vault file, history and audit log.
 
 ## How it works
 
@@ -28,13 +28,17 @@ npm test                # shell tests (node --test)
 
 ### Where the backend comes from
 
-`npm run build:backend` compiles `pm` from the first source it finds:
+The app and `pm` are one product with one version: both ship from the same tag with the same number, and that number is `version` in `package.json`.
+
+`npm run build:backend` (a dev build) compiles `pm` from the first source it finds:
 
 1. `APM_SRC=<path>` or `--src <path>`.
-2. A `CLI` folder next to this one.
-3. Otherwise it clones the CLI (`APM_CLI_REPO`, default https://github.com/aaravmaloo/apm.git, at `APM_CLI_REF`, default `master`) into `.cache/cli` and builds that.
+2. A `CLI` folder next to this one, as it is (uncommitted changes included).
+3. Otherwise it clones the CLI (`APM_CLI_REPO`, default https://github.com/apms-org/apm.git, at `APM_CLI_REF`, default `master`) into `.cache/cli` and builds that.
 
-It then checks that the binary has the `desktop` command and stops with a clear message if the source is too old. Without Go, it keeps an existing `bin/pm`, `APM_PM_PATH` or a `pm` on your PATH, and says which one the app will use.
+`node scripts/build-backend.mjs --release` (what `npm run dist` runs) builds from the tag `v<version>` and never from `master`. It uses `../CLI` only when that is a clean checkout sitting exactly on the tag, otherwise it shallow fetches the tag into `.cache/cli`. If the tag is not on apms-org/apm yet it stops: tag and push the CLI first. `--src` still works but prints a warning that the build is not reproducible.
+
+Every build stamps `-X main.Version=<version>`, checks that the binary has the `desktop` command, and checks that `pm --version` reports the app's version. A mismatch fails a release build and only warns in a dev build. Without Go, a dev build keeps an existing `bin/pm`, `APM_PM_PATH` or a `pm` on your PATH and says which one the app will use; a release build stops.
 
 ### The design system
 
@@ -52,8 +56,17 @@ The app builds from a copy of the design system in `vendor/design-system` (token
 
 ## Which pm binary runs
 
-`APM_PM_PATH` when set, the copy bundled inside the app, `bin/pm` in this folder, then `pm` on your `PATH`.
+The packaged app runs only the `pm` bundled inside it (`Contents/Resources/bin/pm`), so it never picks up an older `pm` from your PATH. If that file is missing the app says so. `APM_PM_PATH` overrides it, for development only. Unpackaged (`npm start`), the order is `APM_PM_PATH`, `bin/pm` in this folder, then `pm` on your `PATH`. Settings shows which one is running (`window.apm.app.info().engine`).
+
+### The pm command
+
+Like VS Code's `code`, the packaged macOS app can install `pm` for the terminal: a symlink at `/usr/local/bin/pm` pointing at the bundled binary, so the terminal and the app always run the same version (`window.apm.app.installCli()`, `uninstallCli()`, `cliStatus()`). It asks for an administrator password when `/usr/local/bin` is not writable, only ever replaces a symlink (never a real file), only removes a link that points into the app, and reports another `pm` that would shadow it on your PATH.
 
 ## Release
 
-`npm run dist` builds the backend, the renderer and an unpacked app for this machine into `release/`. `node scripts/release.mjs --all` builds `release/arm64/APM.app` and `release/amd64/APM.app`. Tags starting with `v` run the same build in CI and publish zipped bundles.
+Releases of the app (apms-org/gui) and the CLI (apms-org/apm) share a number. To ship X.Y.Z:
+
+1. Tag the CLI `vX.Y.Z` and push the tag to apms-org/apm (its own release runs from it).
+2. Set `version` in `package.json` to `X.Y.Z`, commit, tag `vX.Y.Z` and push.
+
+`npm run dist` builds the renderer, `pm` from the CLI tag (`--release`) and an unpacked app for this machine into `release/`. `node scripts/release.mjs --all` builds `release/arm64/APM.app` and `release/amd64/APM.app`. Tags starting with `v` run the same build in CI, which first checks that the tag matches `package.json`, and publish zipped bundles.

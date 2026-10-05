@@ -69,7 +69,8 @@ function normalize(d) {
   x.cliSession = d.cliSession || { active: false };
   x.policies = arr(d.policies);
   x.totpOrder = arr(d.totpOrder);
-  x.readonly = !!d.readonly;
+  x.newerFormat = d.newerFormat != null ? !!d.newerFormat : !!(S.status && S.status.newerFormat);
+  x.readonly = !!d.readonly || x.newerFormat;
   return x;
 }
 
@@ -88,8 +89,11 @@ function setDisk(snap) {
   emit();
 }
 
+export const NEWER_VAULT = "This vault was updated by a newer pm. Update APM to edit it.";
+
 function friendly(e) {
   const code = e && e.code;
+  if (code === "vault_newer") return NEWER_VAULT;
   if (code === "locked") return "The vault is locked.";
   if (code === "readonly") return "This session is read-only.";
   if (code === "network") return "Could not reach the provider. Check your connection and try again.";
@@ -249,7 +253,7 @@ A.readonly = async (mins) => {
 };
 A.endReadonly = async () => {
   const r = await run("vault.readonly", { minutes: 0 });
-  if (r.ok) { S.session.readonly = false; S.session.readonlyUntil = 0; emit(); }
+  if (r.ok) { S.session.readonly = !!(S.disk && S.disk.readonly); S.session.readonlyUntil = 0; emit(); }
   return r;
 };
 

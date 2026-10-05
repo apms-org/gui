@@ -96,7 +96,7 @@ async function waitHello() {
 }
 
 function info() {
-  return { version: pkg.version, platform: process.platform, arch: process.arch, packaged: false, vaultPath, pmPath, userData: sandbox, mode: "web" };
+  return { version: pkg.version, platform: process.platform, arch: process.arch, packaged: false, vaultPath, pmPath, userData: sandbox, engine: { path: pmPath, source: pm.source }, mode: "web" };
 }
 
 const NATIVE = {

@@ -51,6 +51,10 @@ contextBridge.exposeInMainWorld("apmNative", {
     getVaultPath: () => invoke("apm:app-vault-path"),
     defaultVaultPath: () => invoke("apm:app-default-vault-path"),
     setVaultPath: (path) => invoke("apm:app-set-vault-path", path),
+    cliStatus: () => invoke("apm:app-cli-status"),
+    installCli: () => invoke("apm:app-cli-install"),
+    uninstallCli: () => invoke("apm:app-cli-uninstall"),
+    updateCli: () => invoke("apm:app-cli-update"),
     relaunch: () => invoke("apm:app-relaunch"),
     quit: () => invoke("apm:app-quit")
   },

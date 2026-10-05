@@ -1,6 +1,6 @@
 import { A } from "../lib/ds.js";
 import U from "../lib/util.js";
-import { useStore, A as act, store } from "../lib/store.js";
+import { useStore, A as act, store, NEWER_VAULT } from "../lib/store.js";
 import { getType, titleOf, subOf, TYPES, primaryValue } from "../lib/types.js";
 import { ui, useUi, openUrl } from "../lib/ui.js";
 import { analyze } from "../lib/health.js";
@@ -56,7 +56,8 @@ function Sidebar({ analysis, theme, onTheme }) {
       </div>
       <div className="side-foot">
         {pendingAi > 0 && <button type="button" className="side-alert" onClick={() => ui.go({ view: "settings", section: "ai" })}><A.Icon name="bot" size={14} /><span><b>{pendingAi} AI request{pendingAi === 1 ? "" : "s"}</b> waiting for approval</span><A.Icon name="chevron-right" size={13} /></button>}
-        {session.readonly && <div className="side-alert is-ro"><A.Icon name="eye" size={14} /><span><b>Read-only</b> until {new Date(session.readonlyUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span></div>}
+        {disk.newerFormat ? <div className="side-alert is-ro" role="status"><A.Icon name="eye" size={14} /><span><b>Read-only.</b> {NEWER_VAULT}</span></div>
+          : session.readonly && <div className="side-alert is-ro"><A.Icon name="eye" size={14} /><span><b>Read-only</b>{session.readonlyUntil ? " until " + new Date(session.readonlyUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}</span></div>}
         <button type="button" className="sync" title="Encrypted before upload" onClick={() => ui.go({ view: "settings", section: "sync" })}>
           <A.Icon name={sync.length ? (syncing ? "refresh-cw" : "cloud-check") : "cloud-off"} size={14} className={cx(syncing && "spin", sync.length && !syncing && "is-ok")} />
           <span>{sync.length ? (syncing ? <b>Syncing</b> : <><b>{sync.some((p) => p.state === "error") ? "Sync failed" : "Synced"}</b> to {sync.length === 1 ? providerName(sync[0].id) : sync.length + " places"}</>) : "Local only"}</span>
@@ -289,7 +290,7 @@ export function Shell({ theme, onTheme }) {
   const view = u.route.view;
   return (
     <div className={cx("shell", !prefs.sidebar && "no-side")}>
-      {prefs.sidebar ? <Sidebar analysis={analysis} theme={theme} onTheme={onTheme} /> : <div className="side-collapsed drag"><div className="nodrag"><A.IconButton icon="panel-left" label="Show sidebar" kbd={["⇧", "⌘", "B"]} onClick={() => store.savePrefs({ sidebar: true })} /></div></div>}
+      {prefs.sidebar ? <Sidebar analysis={analysis} theme={theme} onTheme={onTheme} /> : <div className="side-collapsed drag"><div className="nodrag"><A.IconButton icon="panel-left" label="Show sidebar" kbd={["⇧", "⌘", "B"]} onClick={() => store.savePrefs({ sidebar: true })} /></div>{disk.newerFormat && <div className="nodrag side-collapsed-ro"><A.IconButton icon="eye" label={"Read-only. " + NEWER_VAULT} onClick={() => store.savePrefs({ sidebar: true })} /></div>}</div>}
       <div className="main" key={view}>
         {view === "vault" && <Vault analysis={analysis} />}
         {view === "authenticator" && <Authenticator />}

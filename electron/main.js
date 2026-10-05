@@ -6,6 +6,7 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { Backend, toEnvelopeError } = require("./backend");
 const { TouchId } = require("./touchid");
+const { CliInstaller, bundleRootFor } = require("./cli-install");
 const paths = require("./paths");
 const { buildMenu, aboutOptions, APP_NAME } = require("./menu");
 
@@ -27,6 +28,7 @@ let mainWindow = null;
 let backend = null;
 let vaultPath = null;
 let pmPath = null;
+let pmSource = null;
 let menuState = { locked: true, hasSelection: false };
 let idleTimer = null;
 let clip = { text: null, timer: null };
@@ -53,7 +55,9 @@ function currentConfig() {
 }
 
 function resolveRuntime() {
-  pmPath = paths.resolvePmPath({ packaged: app.isPackaged, resourcesPath: process.resourcesPath }).path;
+  const pm = paths.resolvePmPath({ packaged: app.isPackaged, resourcesPath: process.resourcesPath });
+  pmPath = pm.path;
+  pmSource = pm.source;
   vaultPath = paths.resolveVaultPath({ config: currentConfig() }).path;
 }
 
@@ -129,8 +133,20 @@ function appInfo() {
     packaged: app.isPackaged,
     vaultPath,
     pmPath,
-    userData: userData()
+    userData: userData(),
+    engine: { path: pmPath, source: pmSource }
   };
+}
+
+// The pm command in /usr/local/bin always links to the pm inside the app,
+// even when APM_PM_PATH points the app at another one.
+function cliInstaller() {
+  return new CliInstaller({
+    packaged: app.isPackaged,
+    bundled: app.isPackaged ? path.join(process.resourcesPath, "bin", paths.binaryName()) : pmPath,
+    bundleRoot: app.isPackaged ? bundleRootFor(process.resourcesPath) : null,
+    version: app.getVersion()
+  });
 }
 
 async function setVaultPath(next) {
@@ -276,6 +292,10 @@ function registerIpc() {
   ipcMain.handle("apm:app-vault-path", envelope(async () => vaultPath));
   ipcMain.handle("apm:app-default-vault-path", envelope(async () => defaultVaultPath()));
   ipcMain.handle("apm:app-set-vault-path", envelope(async (_e, next) => setVaultPath(next)));
+  ipcMain.handle("apm:app-cli-status", envelope(async () => cliInstaller().status()));
+  ipcMain.handle("apm:app-cli-install", envelope(async () => cliInstaller().install()));
+  ipcMain.handle("apm:app-cli-uninstall", envelope(async () => cliInstaller().uninstall()));
+  ipcMain.handle("apm:app-cli-update", envelope(async () => cliInstaller().update()));
   ipcMain.handle("apm:app-relaunch", envelope(async () => { app.relaunch(); app.exit(0); return true; }));
   ipcMain.handle("apm:app-quit", envelope(async () => { setImmediate(() => app.quit()); return true; }));
 

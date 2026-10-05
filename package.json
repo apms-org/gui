@@ -1,7 +1,7 @@
 {
   "name": "apm-desktop",
   "productName": "APM",
-  "version": "0.1.0",
+  "version": "12.0.0",
   "description": "APM desktop app. A native window around the pm vault engine.",
   "private": true,
   "author": "aaravmaloo",

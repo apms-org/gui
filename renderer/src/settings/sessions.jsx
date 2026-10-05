@@ -59,7 +59,7 @@ export function Sessions() {
       <Head title="Sessions" description="When the vault locks itself, how long this unlock lasts, and short-lived sessions you hand to scripts, CI and agents." cli="pm session list" />
       <AutoLock />
       <Card title="This session" cli={s.readonly ? "pm readonly" : "pm lock"}
-        footer={<>{s.readonly ? <A.Button size="sm" onClick={async () => { const r = await act.endReadonly(); if (r.ok) ui.toast({ title: "Editing is back on" }); }}>End read-only</A.Button> : <A.Menu align="end" width={200} trigger={<A.Button size="sm" icon="eye" iconRight="chevron-down">Read-only</A.Button>} items={[{ section: "Stay read-only for" }].concat([15, 30, 60, 240].map((m) => ({ label: m < 60 ? m + " minutes" : m / 60 + " hour" + (m === 60 ? "" : "s"), onSelect: async () => { const r = await act.readonly(m); if (r.ok) ui.toast({ title: "Read-only for " + (m < 60 ? m + " minutes" : m / 60 + "h"), description: "Nothing can be added, edited or deleted.", icon: "eye" }); } })))} />}<A.Button size="sm" variant="primary" icon="lock" kbd={["⌘", "L"]} onClick={() => act.lock("manual")}>Lock now</A.Button></>}>
+        footer={<>{disk.newerFormat ? null : s.readonly ? <A.Button size="sm" onClick={async () => { const r = await act.endReadonly(); if (r.ok) ui.toast({ title: "Editing is back on" }); }}>End read-only</A.Button> : <A.Menu align="end" width={200} trigger={<A.Button size="sm" icon="eye" iconRight="chevron-down">Read-only</A.Button>} items={[{ section: "Stay read-only for" }].concat([15, 30, 60, 240].map((m) => ({ label: m < 60 ? m + " minutes" : m / 60 + " hour" + (m === 60 ? "" : "s"), onSelect: async () => { const r = await act.readonly(m); if (r.ok) ui.toast({ title: "Read-only for " + (m < 60 ? m + " minutes" : m / 60 + "h"), description: "Nothing can be added, edited or deleted.", icon: "eye" }); } })))} />}<A.Button size="sm" variant="primary" icon="lock" kbd={["⌘", "L"]} onClick={() => act.lock("manual")}>Lock now</A.Button></>}>
         <div className="session-now">
           <div className="session-ring">
             <svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" className="ring-track" /><circle cx="22" cy="22" r="19" className="ring-arc" strokeDasharray={119.4} strokeDashoffset={119.4 * (1 - frac)} /></svg>
@@ -68,7 +68,7 @@ export function Sessions() {
           <div className="session-facts">
             <div><span className="muted small">Unlocked</span><b>{U.agoLong(s.unlockedAt)}</b></div>
             <div><span className="muted small">Locks in</span><b className={lockAt ? "mono" : undefined}>{lockAt ? left(lockAt - now).replace(" left", "") : st.lockOnSleep ? "On sleep" : "Never"}</b></div>
-            <div><span className="muted small">Mode</span><b>{s.readonly ? (s.readonlyUntil ? "Read-only until " + new Date(s.readonlyUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Read-only") : "Full access"}</b></div>
+            <div><span className="muted small">Mode</span><b>{disk.newerFormat ? "Read-only, newer vault format" : s.readonly ? (s.readonlyUntil ? "Read-only until " + new Date(s.readonlyUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Read-only") : "Full access"}</b></div>
           </div>
         </div>
       </Card>
