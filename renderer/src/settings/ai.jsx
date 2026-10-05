@@ -33,7 +33,7 @@ export function AiAccess() {
     <>
       <Head title="AI access" description="Let AI assistants use your vault through MCP. Each assistant gets its own token with only the tools you allow, and every change waits for your approval." cli="pm mcp serve" />
       <Card flush>
-        <A.SettingRow icon="bot" title="MCP server" description={mcp.enabled ? "On. Assistants start it with pm mcp serve over stdio. Nothing listens on the network." : "Off. Tokens are kept, and the app stops showing approval requests."}>
+        <A.SettingRow icon="bot" title="MCP server" description={mcp.enabled ? "On. Assistants start it with pm mcp serve over stdio. Nothing listens on the network." : "Off. You can't create tokens or set up assistants here. Tokens you already made keep working until you revoke them."}>
           <A.Switch label="MCP server" checked={!!mcp.enabled} onChange={(v) => act.mcpEnabled(v)} />
         </A.SettingRow>
       </Card>
@@ -43,7 +43,7 @@ export function AiAccess() {
           {pending.map((t) => <Approval key={t.id} t={t} now={now} />)}
         </div>
       )}
-      <Card title="Access tokens" description="Revoking a token cuts that assistant off on its next call." flush cli="pm mcp token"
+      <Card title="Access tokens" description="A revoked token can't start pm mcp serve again. An assistant that is already connected keeps access until it restarts." flush cli="pm mcp token"
         actions={<A.Button size="sm" variant="primary" icon="plus" disabled={!mcp.enabled} onClick={() => ui.open("mcp-token")}>New token</A.Button>}>
         {mcp.tokens.length === 0 && <div className="apm-card-empty">No tokens. Create one per assistant.</div>}
         {mcp.tokens.map((t) => {
@@ -57,7 +57,7 @@ export function AiAccess() {
                 <div className="tok-scopes">{groups.map((g) => <span key={g.id} className={cx("scope", "is-" + g.risk)}>{g.label} <b>{g.tools.filter((x) => t.perms.includes(x)).length}</b></span>)}</div>
               </div>
               <div className="tok-meta"><span>{t.uses || 0} calls</span><span className="muted">{t.lastUsed ? "used " + U.ago(t.lastUsed) : "never used"}</span><span className="muted">{t.expires ? (expired ? "expired " + U.ago(t.expires) : left(t.expires - now)) : "no expiry"}</span></div>
-              <A.Button size="sm" variant="ghost" onClick={() => ui.open("confirm", { title: "Revoke " + t.name + "?", description: "Its next call fails. Pending requests from it are rejected.", icon: "circle-x", tone: "danger", confirm: "Revoke token", onConfirm: async () => { const r = await act.tokenRevoke(t.id); if (r.ok) ui.toast({ title: "Revoked " + t.name, tone: "neutral" }); } })}>Revoke</A.Button>
+              <A.Button size="sm" variant="ghost" onClick={() => ui.open("confirm", { title: "Revoke " + t.name + "?", description: "It can't connect again. If it is connected now, it keeps access until it restarts. Requests it already sent still wait for you to approve or reject.", icon: "circle-x", tone: "danger", confirm: "Revoke token", onConfirm: async () => { const r = await act.tokenRevoke(t.id); if (r.ok) ui.toast({ title: "Revoked " + t.name, tone: "neutral" }); } })}>Revoke</A.Button>
             </div>
           );
         })}
@@ -95,7 +95,7 @@ function Approval({ t, now }) {
     <div className={cx("approval", t.op === "delete_entry" && "is-danger")}>
       <div className="approval-top">
         <A.Avatar name={t.client} size={28} />
-        <div className="approval-who"><b>{t.client}</b><span className="muted small">wants to <b>{opLabel.toLowerCase()}</b> an item · {U.ago(t.created)} ago</span></div>
+        <div className="approval-who"><b>{t.client}</b><span className="muted small">wants to <b>{opLabel.toLowerCase()}</b> an item · {U.ago(t.created)}</span></div>
         <span className="grow" />
         <span className="approval-ttl mono-small">{left(t.expires - now)}</span>
       </div>

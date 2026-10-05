@@ -1,7 +1,9 @@
 "use strict";
 
-const DOCS_URL = "https://aaravmaloo.github.io/apm";
-const ISSUES_URL = "https://github.com/aaravmaloo/apm/issues";
+// Shared with the renderer, so a link changes in one place.
+const LINKS = require("./links.json");
+const DOCS_URL = LINKS.docs;
+const ISSUES_URL = LINKS.issues;
 const APP_NAME = "APM";
 
 const RENDERER_KEYS = new Set([
@@ -125,7 +127,7 @@ function aboutOptions(o) {
     applicationVersion: o.version,
     version: o.backendVersion ? "pm " + o.backendVersion : "",
     copyright: "Copyright 2026 aaravmaloo",
-    website: "https://github.com/aaravmaloo/apm",
+    website: LINKS.repo,
     ...(o.iconPath ? { iconPath: o.iconPath } : {})
   };
 }

@@ -3,6 +3,7 @@ import U from "../lib/util.js";
 import { A as act, useStore } from "../lib/store.js";
 import { PROFILES, CIPHERS, recommendProfile, describe, PASSWORD_RULES } from "../lib/profiles.js";
 import { saveFile } from "../lib/ui.js";
+import LINKS from "../../../electron/links.json";
 
 const cx = U.cx;
 
@@ -73,7 +74,7 @@ export const tildify = (p) => String(p || "").replace(/^\/Users\/[^/]+|^\/home\/
 export function Welcome({ onCreate, onRestore, onOpen, onBack }) {
   const status = useStore((s) => s.status) || {};
   return (
-    <AuthFrame footer={<><span /><a href="https://aaravmaloo.github.io/apm" target="_blank" rel="noreferrer">Documentation</a></>}>
+    <AuthFrame footer={<><span /><a href={LINKS.docs} target="_blank" rel="noreferrer">Documentation</a></>}>
       <A.Mark tile size={64} className="auth-mark" />
       <h1 className="display auth-title">Welcome to APM</h1>
       <p className="auth-sub">One encrypted vault for every secret you have. It lives on this Mac, and only you can open it.</p>

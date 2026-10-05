@@ -57,7 +57,7 @@ export function Sessions() {
     <>
       <Head title="Sessions" description="When the vault locks itself, how long this unlock lasts, and short-lived sessions you hand to scripts, CI and agents." cli="pm session list" />
       <AutoLock />
-      <Card title="This session" cli={s.readonly ? "pm readonly" : "pm lock"}
+      <Card title="This session" cli={s.readonly ? "pm mode readonly <mins>" : "pm lock"}
         footer={<>{disk.newerFormat ? null : s.readonly ? <A.Button size="sm" onClick={async () => { const r = await act.endReadonly(); if (r.ok) ui.toast({ title: "Editing is back on" }); }}>End read-only</A.Button> : <A.Menu align="end" width={200} trigger={<A.Button size="sm" icon="eye" iconRight="chevron-down">Read-only</A.Button>} items={[{ section: "Stay read-only for" }].concat([15, 30, 60, 240].map((m) => ({ label: m < 60 ? m + " minutes" : m / 60 + " hour" + (m === 60 ? "" : "s"), onSelect: async () => { const r = await act.readonly(m); if (r.ok) ui.toast({ title: "Read-only for " + (m < 60 ? m + " minutes" : m / 60 + "h"), description: "Nothing can be added, edited or deleted.", icon: "eye" }); } })))} />}<A.Button size="sm" variant="primary" icon="lock" kbd={["⌘", "L"]} onClick={() => act.lock("manual")}>Lock now</A.Button></>}>
         <div className="session-now">
           <div className="session-ring">

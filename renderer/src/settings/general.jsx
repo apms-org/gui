@@ -4,8 +4,10 @@ import { useStore, A as act, store } from "../lib/store.js";
 import { ui, openUrl } from "../lib/ui.js";
 import { SPACE_COLORS, SpaceDot } from "../screens/spaces.jsx";
 import { Card, Head } from "./common.jsx";
+import LINKS from "../../../electron/links.json";
 
 const cx = U.cx;
+const bare = (url) => url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
 export function General() {
   const disk = useStore((s) => s.disk);
@@ -38,7 +40,7 @@ export function General() {
         <A.SettingRow title="Sounds" description="A soft chime when the vault unlocks and locks."><A.Switch label="Sounds" checked={!!prefs.sounds} onChange={(v) => store.savePrefs({ sounds: v })} /></A.SettingRow>
       </Card>
       <Card title="Updates" cli="pm update" footNote="Opens the releases page. Nothing about your vault is sent."
-        footer={<A.Button size="sm" icon="external-link" onClick={() => openUrl("https://github.com/aaravmaloo/apm/releases")}>See releases</A.Button>}>
+        footer={<A.Button size="sm" icon="external-link" onClick={() => openUrl(LINKS.releases)}>See releases</A.Button>}>
         <div className="version-row">
           <A.Mark size={36} tile />
           <div className="stack-2"><b>APM {info.version || ""}</b><span className="muted small">{[info.platform === "darwin" ? "macOS" : info.platform, info.arch === "arm64" ? "Apple silicon" : info.arch].filter(Boolean).join(" · ")}</span></div>
@@ -155,8 +157,8 @@ export function About() {
         <A.SettingRow title="Version"><span className="mono">{info.version || "unknown"}</span></A.SettingRow>
         <A.SettingRow title="Vault format" description="APMVAULT header, v4 payload"><span className="mono">v4</span></A.SettingRow>
         <A.SettingRow title="License"><span>MIT</span></A.SettingRow>
-        <A.SettingRow title="Source"><A.Button size="sm" variant="ghost" iconRight="arrow-up-right" onClick={() => openUrl("https://github.com/aaravmaloo/apm")}>github.com/aaravmaloo/apm</A.Button></A.SettingRow>
-        <A.SettingRow title="Documentation"><A.Button size="sm" variant="ghost" iconRight="arrow-up-right" onClick={() => openUrl("https://aaravmaloo.github.io/apm")}>aaravmaloo.github.io/apm</A.Button></A.SettingRow>
+        <A.SettingRow title="Source"><A.Button size="sm" variant="ghost" iconRight="arrow-up-right" onClick={() => openUrl(LINKS.repo)}>{bare(LINKS.repo)}</A.Button></A.SettingRow>
+        <A.SettingRow title="Documentation"><A.Button size="sm" variant="ghost" iconRight="arrow-up-right" onClick={() => openUrl(LINKS.docs)}>{bare(LINKS.docs)}</A.Button></A.SettingRow>
         <A.SettingRow title="Keyboard shortcuts"><A.Button size="sm" icon="keyboard" kbd={["⌘", "/"]} onClick={() => ui.open("shortcuts")}>Show</A.Button></A.SettingRow>
       </Card>
     </>
