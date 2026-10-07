@@ -2,19 +2,23 @@
 //
 // An LAContext paired with an LAAuthenticationView (macOS 12+) shows its prompt
 // in that view instead of the system "… is trying to …" alert. This module
-// puts the mini (16 pt) view over the lock screen's Touch ID button, so the
-// fingerprint check runs in place, the way the macOS lock screen does it.
+// puts the view over the lock screen's Touch ID button (mini, 16 pt) or the
+// approval panel's glyph, so the fingerprint check runs in place, the way the
+// macOS lock screen does it.
 //
 // It uses Node-API only, so one build loads in any Electron version. Build it
 // with `npm run build:native`.
 //
-//   available()                          -> boolean
-//   start(handle, rect, dark, reason, cb) -> boolean, cb(ok, laErrorCode) once
-//   move(rect, dark)
+//   available()                                     -> boolean
+//   start(handle, rect, dark, reason, cb[, glyphSize]) -> boolean, cb(ok, laErrorCode) once
+//   move(rect, dark[, glyphSize])  (re-centres; the size stays the one start() picked)
 //   cancel()
 //
 // handle is BrowserWindow#getNativeWindowHandle(). rect is in window points,
-// measured from the top left, and the glyph is centred in it.
+// measured from the top left, and the glyph is centred in it. glyphSize
+// (default 16) picks the system glyph size nearest to it: 16, 32, 64 or 128
+// points. LAAuthenticationView sizes itself to its control size, so these are
+// the only sizes it draws at.
 
 #import <AppKit/AppKit.h>
 #import <LocalAuthentication/LocalAuthentication.h>
@@ -22,9 +26,27 @@
 
 #define NAPI_VERSION 8
 #include <node_api.h>
+#include <math.h>
 #include <string.h>
 
 static const CGFloat kGlyph = 16;
+
+struct GlyphSize {
+  NSControlSize control;
+  CGFloat points;
+};
+
+// The sizes LAAuthenticationView draws at, per control size.
+static GlyphSize GlyphFor(double requested) {
+  static const GlyphSize sizes[] = {
+    {NSControlSizeMini, 16}, {NSControlSizeSmall, 32}, {NSControlSizeRegular, 64}, {NSControlSizeLarge, 128},
+  };
+  GlyphSize best = sizes[0];
+  for (const GlyphSize &g : sizes) {
+    if (fabs(g.points - requested) < fabs(best.points - requested)) best = g;
+  }
+  return best;
+}
 
 struct Outcome {
   bool ok;
@@ -35,6 +57,7 @@ struct Outcome {
 @property(nonatomic, strong) LAContext *context;
 @property(nonatomic, strong) LAAuthenticationView *view;
 @property(nonatomic, assign) napi_threadsafe_function done;
+@property(nonatomic, assign) CGFloat glyph;
 // Set by cancel(). A check the app has cancelled never reports success, even
 // if a finger lands while the cancel is in flight.
 @property(atomic, assign) BOOL cancelled;
@@ -69,6 +92,14 @@ static bool ReadRect(napi_env env, napi_value obj, NSRect *out) {
   return true;
 }
 
+// An optional size argument: 16 when it is missing or not a positive number.
+static double ReadGlyphSize(napi_env env, size_t argc, napi_value *argv, size_t index) {
+  if (argc <= index) return kGlyph;
+  double v = 0;
+  if (napi_get_value_double(env, argv[index], &v) != napi_ok || !(v > 0) || v > 4096) return kGlyph;
+  return v;
+}
+
 static bool ReadBool(napi_env env, napi_value v) {
   bool out = false;
   napi_get_value_bool(env, v, &out);
@@ -89,11 +120,11 @@ static NSView *RootView(napi_env env, napi_value handle) {
 }
 
 // Centres the glyph in rect, converting from top-left web coordinates.
-static NSRect GlyphFrame(NSView *root, NSRect rect) {
-  CGFloat x = round(NSMinX(rect) + (NSWidth(rect) - kGlyph) / 2);
-  CGFloat top = NSMinY(rect) + (NSHeight(rect) - kGlyph) / 2;
-  CGFloat y = round(root.isFlipped ? top : NSHeight(root.bounds) - top - kGlyph);
-  return NSMakeRect(x, y, kGlyph, kGlyph);
+static NSRect GlyphFrame(NSView *root, NSRect rect, CGFloat glyph) {
+  CGFloat x = round(NSMinX(rect) + (NSWidth(rect) - glyph) / 2);
+  CGFloat top = NSMinY(rect) + (NSHeight(rect) - glyph) / 2;
+  CGFloat y = round(root.isFlipped ? top : NSHeight(root.bounds) - top - glyph);
+  return NSMakeRect(x, y, glyph, glyph);
 }
 
 static void SetAppearance(NSView *view, bool dark) {
@@ -127,10 +158,10 @@ static napi_value Available(napi_env env, napi_callback_info info) {
 }
 
 static napi_value Start(napi_env env, napi_callback_info info) {
-  size_t argc = 5;
-  napi_value argv[5];
+  size_t argc = 6;
+  napi_value argv[6];
   napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-  if (argc < 5) return Throw(env, "start(handle, rect, dark, reason, callback)");
+  if (argc < 5) return Throw(env, "start(handle, rect, dark, reason, callback[, glyphSize])");
   NSView *root = RootView(env, argv[0]);
   if (!root) return Throw(env, "That is not a window handle.");
   NSRect rect;
@@ -142,6 +173,7 @@ static napi_value Start(napi_env env, napi_callback_info info) {
   napi_valuetype cbType;
   napi_typeof(env, argv[4], &cbType);
   if (cbType != napi_function) return Throw(env, "callback must be a function.");
+  GlyphSize glyph = GlyphFor(ReadGlyphSize(env, argc, argv, 5));
 
   Cancel();
   LAContext *ctx = [LAContext new];
@@ -153,8 +185,8 @@ static napi_value Start(napi_env env, napi_callback_info info) {
   if (napi_create_threadsafe_function(env, argv[4], NULL, name, 0, 1, NULL, NULL, NULL, CallDone, &done) != napi_ok) return Throw(env, "Could not create the Touch ID callback.");
   napi_unref_threadsafe_function(env, done);
 
-  LAAuthenticationView *view = [[LAAuthenticationView alloc] initWithContext:ctx controlSize:NSControlSizeMini];
-  view.frame = GlyphFrame(root, rect);
+  LAAuthenticationView *view = [[LAAuthenticationView alloc] initWithContext:ctx controlSize:glyph.control];
+  view.frame = GlyphFrame(root, rect, glyph.points);
   SetAppearance(view, dark);
   [root addSubview:view positioned:NSWindowAbove relativeTo:nil];
 
@@ -162,6 +194,7 @@ static napi_value Start(napi_env env, napi_callback_info info) {
   s.context = ctx;
   s.view = view;
   s.done = done;
+  s.glyph = glyph.points;
   current = s;
 
   [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
@@ -180,14 +213,16 @@ static napi_value Start(napi_env env, napi_callback_info info) {
 }
 
 static napi_value Move(napi_env env, napi_callback_info info) {
-  size_t argc = 2;
-  napi_value argv[2];
+  size_t argc = 3;
+  napi_value argv[3];
   napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (!current || argc < 2) return NULL;
   NSRect rect;
   if (!ReadRect(env, argv[0], &rect)) return Throw(env, "rect needs x, y, width and height.");
+  // glyphSize is accepted for symmetry with start(), but the view keeps the
+  // control size it was made with, so the glyph is re-centred at that size.
   NSView *root = current.view.superview;
-  if (root) current.view.frame = GlyphFrame(root, rect);
+  if (root) current.view.frame = GlyphFrame(root, rect, current.glyph);
   SetAppearance(current.view, ReadBool(env, argv[1]));
   return NULL;
 }

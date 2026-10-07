@@ -29,7 +29,7 @@ export const SECTIONS = [
   { group: "Connections", items: [
     { id: "sync", label: "Sync", icon: "cloud", keys: "cloud github google drive dropbox apmignore conflict diff" },
     { id: "passkeys", label: "Browser extension", icon: "puzzle", keys: "passkey browser extension bridge pairing pair connect token webauthn autofill fill chrome edge arc brave" },
-    { id: "ai", label: "AI access", icon: "bot", keys: "mcp claude cursor tokens approvals transactions" }
+    { id: "ai", label: "MCP", icon: "mcp", keys: "ai access model context protocol claude cursor codex vscode windsurf gemini assistants agents connect allow permissions tokens approvals requests transactions pause resume bypass always allow touch id approve expire expiry new assistants block secrets 2fa default permissions" }
   ] },
   { group: "Data", items: [
     { id: "import", label: "Import and export", icon: "arrow-up-down", keys: "import export csv json bitwarden 1password backup" },

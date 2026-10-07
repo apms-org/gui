@@ -84,7 +84,7 @@ export function MoveDialog({ ids, onClose }) {
   const first = disk.items.find((i) => i.id === ids[0]);
   const [dest, setDest] = React.useState(first ? first.space || "" : "");
   return (
-    <A.Dialog open onClose={onClose} size="sm" icon="folder" title={ids.length === 1 ? "Move to space" : "Move " + ids.length + " items"} description="Spaces are folders inside this vault. Sync and AI access rules can target a space."
+    <A.Dialog open onClose={onClose} size="sm" icon="folder" title={ids.length === 1 ? "Move to space" : "Move " + ids.length + " items"} description="Spaces are folders inside this vault. Sync and MCP rules can target a space."
       footer={<><A.Button onClick={onClose}>Cancel</A.Button><A.Button variant="primary" onClick={async () => { const r = await act.moveItems(ids, dest); if (r.ok) { ui.toast({ title: "Moved to " + (dest || "Default") }); ui.setMulti([]); } onClose(); }}>Move</A.Button></>}>
       <A.ChoiceGroup columns={1} compact label="Space" value={dest} onChange={setDest}>
         {[{ name: "", color: 7 }].concat(disk.spaces).map((s) => (

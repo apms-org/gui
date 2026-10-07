@@ -1,0 +1,7 @@
+/* The approval panel window is fully transparent: the sheet draws its own
+   shadow inside the 24px margin around it. */
+html,body{margin:0;padding:0;background:transparent !important;overflow:hidden}
+body{-webkit-user-select:none;user-select:none;cursor:default}
+.approval-stage{box-sizing:border-box;width:448px;padding:24px}
+.approval-stage:empty{padding:0}
+.approval-stage .apm-approval{width:400px}

@@ -10,7 +10,9 @@ const bridge = { pending: null, lastSeen: null };
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const pick = (n, set) => Array.from({ length: n }, () => set[Math.floor(Math.random() * set.length)]).join("");
 const bridgeInfo = () => ({ token: "f".repeat(64), port: 41517, running: true, lastSeen: bridge.lastSeen, pair: bridge.pending });
-const snapshot = () => ({ meta: { name: "Fake vault", path: "/tmp/x.dat" }, items: [], bridge: bridgeInfo() });
+// MCP settings exist once a test turns them on (test.mcpOn), like a pm that has them.
+const mcp = { policy: null, assistants: [{ id: "a1", name: "Claude Code", perms: ["list_vault"], bypass: "ask", bypassUntil: 0 }] };
+const snapshot = () => ({ meta: { name: "Fake vault", path: "/tmp/x.dat" }, items: [], bridge: bridgeInfo(), mcp: mcp.policy ? { policy: mcp.policy, assistants: mcp.assistants, tx: [] } : { assistants: [{ id: "a1", name: "Claude Code", perms: ["list_vault"] }], tx: [{ id: "t1", op: "add_entry", status: "pending" }] } });
 
 process.stderr.write("fake backend ready " + process.argv.slice(2).join(" ") + "\n");
 
@@ -71,6 +73,22 @@ function handle(msg) {
     unlocked = false;
     out({ event: "vault.locked", data: { reason: "Locked from the browser" } });
     return out({ id, result: { ok: true } });
+  }
+  if (method === "test.mcpOn") {
+    mcp.policy = { paused: false, approveWith: "any", expiryMinutes: 15, newAssistants: "ask", askBeforeSecrets: false, defaultPerms: ["list_vault", "search_vault"] };
+    return out({ id, result: { ok: true } });
+  }
+  if (method === "mcp.policy.set" && mcp.policy) {
+    if (params.expiryMinutes != null && ![5, 15, 30, 60].includes(params.expiryMinutes)) return out({ id, error: { code: "invalid", message: "Expiry must be 5, 15, 30 or 60 minutes." } });
+    Object.assign(mcp.policy, params);
+    return out({ id, result: { policy: mcp.policy, snapshot: snapshot() } });
+  }
+  if (method === "mcp.assistant.bypass" && mcp.policy) {
+    const a = mcp.assistants.find((x) => x.id === params.id);
+    if (!a) return out({ id, error: { code: "not_found", message: "That assistant is no longer allowed." } });
+    a.bypass = params.mode === "always" ? "always" : "ask";
+    a.bypassUntil = params.mode === "hour" ? Date.now() + 3600000 : 0;
+    return out({ id, result: { assistant: a, snapshot: snapshot() } });
   }
   if (method === "crash") {
     if (marker) fs.appendFileSync(marker, "crash\n");

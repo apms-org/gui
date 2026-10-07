@@ -125,6 +125,46 @@ test("store handles bridge pairing, activity and browser lock state", async (t) 
       assert.equal(S.session.unlockedAt, at);
     });
 
+    await t.test("MCP settings fall back to defaults and say so when pm doesn't have them", async () => {
+      const m = S.disk.mcp;
+      assert.equal(m.policy.known, false);
+      assert.equal(m.policy.paused, false);
+      assert.equal(m.policy.approveWith, "any");
+      assert.equal(m.policy.expiryMinutes, 15);
+      assert.equal(m.policy.newAssistants, "ask");
+      assert.equal(m.policy.defaultPerms.length, 11);
+      assert.equal(m.assistants[0].bypass, "ask");
+      assert.equal(m.assistants[0].bypassUntil, 0);
+      assert.equal(m.tx[0].approveWith, "any");
+      const r = await A.mcpPolicy({ paused: true });
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "unsupported");
+      assert.equal(ui.get().toast.title, "This version of pm can't change MCP settings yet. Update pm and try again.");
+      assert.equal(S.session.unlocked, true);
+    });
+
+    await t.test("MCP settings and bypass go to the backend, and its refusals are shown as they are", async () => {
+      await backend.call("test.mcpOn");
+      let r = await A.mcpPolicy({ paused: true, approveWith: "touchid" });
+      assert.equal(r.ok, true);
+      assert.equal(S.disk.mcp.policy.known, true);
+      assert.equal(S.disk.mcp.policy.paused, true);
+      assert.equal(S.disk.mcp.policy.approveWith, "touchid");
+      assert.deepEqual(S.disk.mcp.policy.defaultPerms, ["list_vault", "search_vault"]);
+      r = await A.mcpPolicy({ expiryMinutes: 7 });
+      assert.equal(r.ok, false);
+      assert.equal(ui.get().toast.title, "Expiry must be 5, 15, 30 or 60 minutes.");
+      r = await A.assistantBypass("a1", "hour");
+      assert.equal(r.ok, true);
+      assert.ok(S.disk.mcp.assistants[0].bypassUntil > Date.now() + 3500000);
+      r = await A.assistantBypass("a1", "always");
+      assert.equal(S.disk.mcp.assistants[0].bypass, "always");
+      assert.equal(S.disk.mcp.assistants[0].bypassUntil, 0);
+      r = await A.assistantBypass("gone", "ask");
+      assert.equal(r.ok, false);
+      assert.equal(ui.get().toast.title, "That assistant is no longer allowed.");
+    });
+
     await t.test("vault.locked from the browser keeps its reason for the lock screen", async () => {
       await backend.call("test.browserLock");
       await until(() => !S.session.unlocked, "lock");

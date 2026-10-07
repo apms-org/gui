@@ -1,11 +1,13 @@
 "use strict";
 
-const { app, BrowserWindow, ipcMain, clipboard, dialog, Menu, shell, protocol, net, powerMonitor, nativeTheme, session } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, dialog, Menu, shell, protocol, net, powerMonitor, nativeTheme, session, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { Backend, toEnvelopeError } = require("./backend");
 const { TouchId } = require("./touchid");
+const { isMcpInstallLink } = require("./links");
+const { Approvals } = require("./approvals");
 const { CliInstaller, bundleRootFor } = require("./cli-install");
 const paths = require("./paths");
 const { buildMenu, aboutOptions, APP_NAME } = require("./menu");
@@ -44,6 +46,9 @@ const approvedRead = new Set();
 // pm sends touchid.reply only from here, after the fingerprint check.
 const PRIVATE_METHODS = new Set(["touchid.reply"]);
 let touchId = null;
+// The always-on-top prompt for MCP write requests, shown whether or not the
+// main window is open or the vault is unlocked.
+let approvals = null;
 
 function send(event, data) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("apm:event", { event, data: data === undefined ? null : data });
@@ -141,10 +146,12 @@ function startBackend() {
     // browser. A new window picks the request up from bridge.info on boot.
     if (event === "bridge.pair") showWindow({ steal: true });
     if (event === "bridge.activity") lockWatch.lastActive = Date.now();
+    if (event === "mcp.pending") approvals.pending(data);
+    if (event === "mcp.resolved") approvals.resolved(data);
     if (data && data.snapshot) noteSettings(data.snapshot);
     send(event, data);
   });
-  backend.on("spawn", () => touchId.cancelInline());
+  backend.on("spawn", () => { touchId.cancelInline(); approvals.sync(); });
   backend.on("log", (line) => { if (!app.isPackaged) process.stderr.write("[pm] " + line + "\n"); });
   backend.start();
 }
@@ -321,6 +328,10 @@ function registerIpc() {
   }));
 
   ipcMain.handle("apm:shell-open", envelope(async (_e, url) => {
+    if (isMcpInstallLink(url)) {
+      await shell.openExternal(String(url));
+      return true;
+    }
     let u;
     try { u = new URL(String(url)); } catch (err) { u = null; }
     if (!u || !["https:", "http:", "mailto:"].includes(u.protocol)) {
@@ -503,6 +514,18 @@ if (!app.requestSingleInstanceLock()) {
       reply: (payload) => backend.call("touchid.reply", payload, { timeout: 5000 }),
       notify: (on) => send("touchid.inline", { on })
     });
+    approvals = new Approvals({
+      BrowserWindow,
+      screen,
+      ipcMain,
+      native: touchId.native,
+      touchId,
+      call: (method, params) => backend.call(method, params, { timeout: 30000 }),
+      url: SCHEME + "://" + HOST + "/approval.html",
+      preload: path.join(__dirname, "approval-preload.js"),
+      packaged: app.isPackaged,
+      log: (line) => process.stderr.write(line + "\n")
+    });
     lockDownSession();
     registerProtocol();
     registerIpc();
@@ -523,6 +546,7 @@ if (!app.requestSingleInstanceLock()) {
     if (quitting) return;
     quitting = true;
     clearClipboardIfOurs();
+    if (approvals) approvals.dispose();
     if (idleTimer) clearInterval(idleTimer);
     if (lockTimer) clearInterval(lockTimer);
     if (backend && backend.running) {

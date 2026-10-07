@@ -12,6 +12,7 @@
     "build:backend": "node scripts/build-backend.mjs",
     "build:native": "node scripts/build-native.mjs",
     "dev": "node scripts/build-backend.mjs && node scripts/build-native.mjs --optional && node scripts/build-renderer.mjs && electron .",
+    "dev:watch": "node scripts/dev-watch.mjs",
     "start": "electron .",
     "web": "node scripts/build-renderer.mjs && node scripts/web-bridge.mjs",
     "dist": "node scripts/release.mjs",

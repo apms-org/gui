@@ -47,6 +47,31 @@ const arr = (x) => (Array.isArray(x) ? x : []);
 function normItem(it) {
   return Object.assign({ space: "", fav: false, f: {}, passkeys: [], created: 0, modified: 0, used: 0, uses: 0, rotated: 0, versions: [], createdBy: "", source: "", privilege: "", exposed: false }, it, { f: it.f || {}, passkeys: arr(it.passkeys), versions: arr(it.versions) });
 }
+function normAssistant(a) {
+  return Object.assign({ id: "", name: "", harness: "", created: 0, lastUsed: 0, uses: 0 }, a, { perms: arr(a && a.perms), created: toMs(a && a.created), lastUsed: toMs(a && a.lastUsed), uses: Number(a && a.uses) || 0, bypass: a && a.bypass === "always" ? "always" : "ask", bypassUntil: toMs(a && a.bypassUntil) });
+}
+function normTx(t) {
+  const x = Object.assign({ id: "", client: "", op: "", summary: "", entry: null, created: 0, expires: 0, status: "pending", receipt: "", error: "", decidedVia: "", approveWith: "any" }, t);
+  if (x.approveWith !== "touchid") x.approveWith = "any";
+  return x;
+}
+// MCP settings (mcp_policy.json). A pm without them sends no policy: the defaults show and `known` is false.
+export const MCP_DEFAULT_PERMS = ["list_vault", "search_vault", "get_entry", "decrypt_entry", "get_totp", "generate_password", "add_entry", "edit_entry", "delete_entry", "tx_list", "tx_abort"];
+export const MCP_EXPIRY = [5, 15, 30, 60];
+function normPolicy(p) {
+  const known = !!(p && typeof p === "object");
+  const x = known ? p : {};
+  const exp = Number(x.expiryMinutes);
+  return {
+    known,
+    paused: !!x.paused,
+    approveWith: x.approveWith === "touchid" ? "touchid" : "any",
+    expiryMinutes: MCP_EXPIRY.includes(exp) ? exp : 15,
+    newAssistants: x.newAssistants === "block" ? "block" : "ask",
+    askBeforeSecrets: !!x.askBeforeSecrets,
+    defaultPerms: Array.isArray(x.defaultPerms) ? x.defaultPerms.slice() : MCP_DEFAULT_PERMS.slice()
+  };
+}
 function normalize(d) {
   const x = Object.assign({}, d);
   x.meta = Object.assign({ name: "Personal vault", path: "", created: 0, modified: 0, profile: "standard", custom: null, cipher: "AES-256-GCM", securityLevel: 1, alerts: false, alertEmail: "", anomaly: false, policy: null, activeSpace: "", version: "" }, d.meta || {});
@@ -64,7 +89,7 @@ function normalize(d) {
   const sy = d.sync || {};
   x.sync = Object.assign({ auto: false, lastSync: 0, pending: false, ignore: "", ignorePath: "" }, sy, { providers: arr(sy.providers) });
   const m = d.mcp || {};
-  x.mcp = Object.assign({ enabled: false, clients: {} }, m, { tokens: arr(m.tokens), tx: arr(m.tx), clients: m.clients || {} });
+  x.mcp = Object.assign({ enabled: false, clients: {} }, m, { tokens: arr(m.tokens), tx: arr(m.tx).map(normTx), assistants: arr(m.assistants).map(normAssistant), clients: m.clients || {}, policy: normPolicy(m.policy) });
   x.sessions = arr(d.sessions);
   x.cliSession = d.cliSession || { active: false };
   x.policies = arr(d.policies);
@@ -79,7 +104,15 @@ function rememberVault() {
   if (!d || !path) return;
   const cur = (S.prefs.vaults || {})[path] || {};
   if (cur.name === d.meta.name && cur.count === d.items.length) return;
-  store.savePrefs({ vaults: Object.assign({}, S.prefs.vaults, { [path]: { name: d.meta.name, count: d.items.length } }) });
+  store.savePrefs({ vaults: Object.assign({}, S.prefs.vaults, { [path]: Object.assign({}, cur, { name: d.meta.name, count: d.items.length }) }) });
+}
+
+const vaultPath = () => (S.status && S.status.path) || (S.disk && S.disk.meta.path) || "";
+const vaultPrefs = () => (S.prefs.vaults || {})[vaultPath()] || {};
+function saveVaultPrefs(patch) {
+  const path = vaultPath();
+  if (!path) return;
+  store.savePrefs({ vaults: Object.assign({}, S.prefs.vaults, { [path]: Object.assign({}, vaultPrefs(), patch) }) });
 }
 
 function setDisk(snap) {
@@ -117,7 +150,7 @@ async function run(method, params, opts) {
     const r = await call(method, params);
     return Object.assign({ ok: true }, r);
   } catch (e) {
-    const out = { ok: false, error: friendly(e), code: e && e.code, data: (e && e.data) || {} };
+    const out = { ok: false, error: friendly(e), message: (e && e.message) || friendly(e), code: e && e.code, data: (e && e.data) || {} };
     if (!(opts && opts.quiet) && !(e && e.code === "locked")) ui.toast({ title: out.error, tone: "danger", icon: "triangle-alert", duration: 4200 });
     return out;
   }
@@ -159,6 +192,7 @@ function endPair(id, status) {
 }
 
 export const A = {};
+const ASKS = { connect: " wants to use your vault", add_entry: " is asking to add an item", delete_entry: " is asking to delete an item", get_entry: " wants to read an item", decrypt_entry: " wants to read an item", get_totp: " wants a 2FA code", search_vault: " wants to search your vault" };
 
 A.boot = async () => {
   if (!api) { S.phase = "fatal"; S.fatal = "The APM backend bridge is missing. Start the app with npm run dev."; emit(); return; }
@@ -194,7 +228,15 @@ A.boot = async () => {
     if (!S.session.unlocked) return;
     try { await loadSnapshot(); } catch (e) {}
     const tx = d && d.tx;
-    if (tx) ui.toast({ title: (tx.client || "An assistant") + " is asking to " + (tx.op === "add_entry" ? "add an item" : tx.op === "delete_entry" ? "delete an item" : "change an item"), description: tx.summary, tone: "neutral", icon: "bot", duration: 7000, action: { label: "Review", onClick: () => ui.go({ view: "settings", section: "ai" }) } });
+    if (tx) ui.toast({ title: (tx.client || "An assistant") + (ASKS[tx.op] || " is asking to change an item"), description: tx.summary, tone: "neutral", icon: "bot", duration: 7000, action: { label: "Review", onClick: () => ui.go({ view: "settings", section: "ai" }) } });
+  });
+  // A request was decided somewhere else (the approval prompt, pm, another
+  // window). Reload so Requests stops offering Approve for it.
+  let resolvedTimer = null;
+  api.on("mcp.resolved", () => {
+    if (!S.session.unlocked) return;
+    clearTimeout(resolvedTimer);
+    resolvedTimer = setTimeout(() => { if (S.session.unlocked) loadSnapshot().catch(() => {}); }, 150);
   });
   api.on("backend.exit", (d) => { S.phase = "fatal"; S.fatal = "The APM backend stopped" + (d && d.message ? ": " + d.message : ".") + " Restart the app."; S.disk = null; S.session = freshSession(); emit(); });
   api.on("power", (d) => { const st = S.disk && S.disk.settings; if (!S.session.unlocked || !st) return; if (st.lockOnSleep && d && (d.state === "suspend" || d.state === "lock-screen")) A.lock("sleep"); });
@@ -395,13 +437,37 @@ A.syncRestore = async (p) => {
   return r;
 };
 
-A.mcpEnabled = (on) => run("mcp.enabled", { on: !!on });
-A.mcpClient = (name, on) => run("mcp.client", { name, on: !!on });
-A.tokenCreate = (name, perms, expiresMinutes) => run("mcp.token.create", { name, perms, expiresMinutes }, { quiet: true });
+// MCP. Assistants pair once through the approval panel; tokens are legacy.
+let harnesses = null;
+A.mcpHarnesses = async (fresh) => {
+  if (harnesses && !fresh) return { ok: true, harnesses };
+  const r = await run("mcp.harnesses", {}, { quiet: true });
+  if (r.ok) harnesses = arr(r.harnesses).filter((x) => x && x.id).map((x) => Object.assign({ name: x.id, kind: "cli", command: "", url: "", restart: "", notes: "" }, x));
+  return r.ok ? { ok: true, harnesses } : r;
+};
+A.lastHarness = () => vaultPrefs().harness || null;
+A.setLastHarness = (id) => { if (vaultPrefs().harness !== id) saveVaultPrefs({ harness: id }); };
+A.assistantRevoke = (id) => run("mcp.assistant.revoke", { id });
+A.assistantPerms = (id, perms) => run("mcp.assistant.perms", { id, perms: arr(perms) }, { quiet: true });
 A.tokenRevoke = (id) => run("mcp.token.revoke", { id });
-A.txApprove = (id) => run("mcp.tx.approve", { id });
-A.txAbort = (id) => run("mcp.tx.abort", { id });
-A.mcpConfig = (client, token) => run("mcp.config", { client, token }, { quiet: true });
+A.txDecide = (id, approve) => run("mcp.tx.decide", { id, approve: !!approve, via: "click" });
+// Loosening a setting needs the vault unlocked; the backend says so, and its words are shown.
+const MCP_OLD = "This version of pm can't change MCP settings yet. Update pm and try again.";
+async function mcpRun(method, params) {
+  const r = await run(method, params, { quiet: true });
+  if (!r.ok) {
+    if (r.code === "unsupported") r.error = MCP_OLD;
+    else if (r.message) r.error = r.message;
+    ui.toast({ title: r.error, tone: "danger", icon: "triangle-alert", duration: 4200 });
+  }
+  return r;
+}
+A.mcpPolicy = (partial) => mcpRun("mcp.policy.set", Object.assign({}, partial));
+A.assistantBypass = (id, mode) => mcpRun("mcp.assistant.bypass", { id, mode });
+A.openLink = async (url) => {
+  if (!api || !api.shell) return { ok: false, error: "Links can't be opened here." };
+  try { await api.shell.openExternal(String(url)); return { ok: true }; } catch (e) { return { ok: false, error: friendly(e), code: e && e.code }; }
+};
 
 A.sessionIssue = (o) => run("sessions.issue", o, { quiet: true });
 A.sessionRevoke = (id) => run("sessions.revoke", { id });

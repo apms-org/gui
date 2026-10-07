@@ -32,6 +32,10 @@ const outputOptions = {
   sourcemap: watching ? "inline" : false
 };
 
+// The MCP approval panel (electron/approvals.js) is its own small page.
+const approvalInput = { ...inputOptions, input: path.join(src, "src", "approval", "main.jsx") };
+const approvalOutput = { ...outputOptions, file: path.join(dist, "approval.js") };
+
 function copy(from, to) {
   fs.mkdirSync(path.dirname(to), { recursive: true });
   fs.copyFileSync(from, to);
@@ -65,6 +69,8 @@ function copyAssets() {
   copyDir(path.join(src, "sounds"), path.join(dist, "sounds"), (n) => /\.(mp3|wav|ogg)$/.test(n));
   copy(path.join(src, "index.html"), path.join(dist, "index.html"));
   copy(path.join(src, "web-shim.js"), path.join(dist, "web-shim.js"));
+  copy(path.join(src, "approval.html"), path.join(dist, "approval.html"));
+  copy(path.join(src, "src", "approval", "approval.css"), path.join(dist, "approval.css"));
   writeCss();
 }
 
@@ -73,17 +79,19 @@ async function once() {
   fs.mkdirSync(dist, { recursive: true });
   const started = Date.now();
   await build({ ...inputOptions, output: outputOptions });
+  await build({ ...approvalInput, output: approvalOutput });
   copyAssets();
   const size = fs.statSync(path.join(dist, "app.js")).size;
-  console.log("renderer built in " + (Date.now() - started) + " ms, app.js " + Math.round(size / 1024) + " KB");
+  const approvalSize = fs.statSync(path.join(dist, "approval.js")).size;
+  console.log("renderer built in " + (Date.now() - started) + " ms, app.js " + Math.round(size / 1024) + " KB, approval.js " + Math.round(approvalSize / 1024) + " KB");
 }
 
 async function watchMode() {
   fs.mkdirSync(dist, { recursive: true });
   copyAssets();
-  const watcher = watch({ ...inputOptions, output: outputOptions });
+  const watcher = watch([{ ...inputOptions, output: outputOptions }, { ...approvalInput, output: approvalOutput }]);
   watcher.on("event", (e) => {
-    if (e.code === "BUNDLE_END") console.log("app.js rebuilt in " + e.duration + " ms");
+    if (e.code === "BUNDLE_END") console.log((e.output && e.output[0] ? path.basename(e.output[0]) : "bundle") + " rebuilt in " + e.duration + " ms");
     if (e.code === "ERROR") console.error(e.error && e.error.message ? e.error.message : e.error);
     if (e.code === "BUNDLE_END" && e.result && e.result.close) e.result.close();
   });
@@ -104,7 +112,7 @@ async function watchMode() {
     if (fs.existsSync(p)) fs.watch(p, { recursive: true }, refresh);
   }
   for (const p of [path.join(ds, "components"), path.join(ds, "fonts")]) fs.watch(p, { recursive: true }, refresh);
-  for (const file of [path.join(src, "index.html"), path.join(src, "web-shim.js"), path.join(ds, "tokens.css")]) fs.watch(file, refresh);
+  for (const file of [path.join(src, "index.html"), path.join(src, "approval.html"), path.join(src, "src", "approval", "approval.css"), path.join(src, "web-shim.js"), path.join(ds, "tokens.css")]) fs.watch(file, refresh);
   console.log("watching renderer for changes");
 }
 

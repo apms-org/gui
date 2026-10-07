@@ -101,7 +101,7 @@ function CommandHost({ disk, onTheme }) {
     { label: "Keyboard shortcuts", icon: "keyboard", kbd: ["⌘", "/"], onSelect: () => ui.open("shortcuts") },
     { label: "Lock vault", icon: "lock", kbd: ["⌘", "L"], onSelect: () => act.lock("manual") }
   ];
-  const settings = [["general", "General"], ["security", "Security"], ["recovery", "Recovery"], ["sessions", "Sessions"], ["appearance", "Appearance"], ["spaces", "Spaces"], ["sync", "Sync"], ["passkeys", "Browser extension"], ["ai", "AI access"], ["import", "Import and export"], ["developer", "Developer"], ["maintenance", "Maintenance"], ["alerts", "Alerts"], ["about", "About"]].map(([id, label]) => ({ label: "Settings: " + label, icon: "settings", onSelect: () => ui.go({ view: "settings", section: id }) }));
+  const settings = [["general", "General"], ["security", "Security"], ["recovery", "Recovery"], ["sessions", "Sessions"], ["appearance", "Appearance"], ["spaces", "Spaces"], ["sync", "Sync"], ["passkeys", "Browser extension"], ["ai", "MCP"], ["import", "Import and export"], ["developer", "Developer"], ["maintenance", "Maintenance"], ["alerts", "Alerts"], ["about", "About"]].map(([id, label]) => ({ label: "Settings: " + label, icon: "settings", onSelect: () => ui.go({ view: "settings", section: id }) }));
   return <A.CommandMenu open onClose={() => ui.cmd(false)} placeholder="Search items, actions and settings" groups={[{ label: "Items", items, limit: 8, idleLimit: 5 }, { label: "Actions", items: actions, limit: 6, idleLimit: 5 }, { label: "Copy", items: copies, limit: 5, idleLimit: 0 }, { label: "Go to", items: nav, limit: 6, idleLimit: 4 }, { label: "Settings", items: settings, limit: 5, idleLimit: 0 }]} />;
 }
 
