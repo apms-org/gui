@@ -17,6 +17,7 @@ const U = {
   toast: null,
   cmd: false,
   editing: null,
+  editFocus: null,
   quick: null,
   v: 0
 };
@@ -34,7 +35,8 @@ export const ui = {
   toast: (t) => { U.toast = Object.assign({ key: Date.now() + Math.random() }, t); emit(); },
   clearToast: (key) => { if (!key || (U.toast && U.toast.key === key)) { U.toast = null; emit(); } },
   cmd: (open) => { U.cmd = open; emit(); },
-  edit: (id) => { U.editing = id; emit(); },
+  // focus: { field, generate } opens the editor at one field, with the generator open for a password.
+  edit: (id, focus) => { U.editing = id; U.editFocus = id ? focus || null : null; emit(); },
   quick: (id) => { U.quick = id; emit(); },
   emit
 };

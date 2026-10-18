@@ -22,6 +22,7 @@ const S = {
   session: freshSession(),
   pair: null,
   seen: null,
+  failedSince: null,
   busy: {},
   v: 0
 };
@@ -74,7 +75,7 @@ function normPolicy(p) {
 }
 function normalize(d) {
   const x = Object.assign({}, d);
-  x.meta = Object.assign({ name: "Personal vault", path: "", created: 0, modified: 0, profile: "standard", custom: null, cipher: "AES-256-GCM", securityLevel: 1, alerts: false, alertEmail: "", anomaly: false, policy: null, activeSpace: "", version: "" }, d.meta || {});
+  x.meta = Object.assign({ name: "Personal vault", path: "", created: 0, modified: 0, profile: "standard", custom: null, cipher: "AES-256-GCM", securityLevel: 1, alerts: false, alertEmail: "", anomaly: false, breachCheck: false, policy: null, activeSpace: "", version: "" }, d.meta || {});
   x.auth = Object.assign({ touchId: false, touchIdAvailable: false }, d.auth || {});
   x.items = arr(d.items).map(normItem);
   x.trash = arr(d.trash).map(normItem);
@@ -205,9 +206,10 @@ A.boot = async () => {
     if (st.unlocked) {
       if (await loadSnapshot()) S.session = Object.assign(freshSession(), { unlocked: true, unlockedAt: Date.now() });
     } else if (st.exists && st.cliSession) {
-      try { await call("vault.unlockSession"); if (!S.disk) await loadSnapshot(); S.session = Object.assign(freshSession(), { unlocked: true, unlockedAt: Date.now() }); } catch (e) { S.disk = null; }
+      try { const u = await call("vault.unlockSession"); S.failedSince = (u && u.failedSince) || null; if (!S.disk) await loadSnapshot(); S.session = Object.assign(freshSession(), { unlocked: true, unlockedAt: Date.now() }); } catch (e) { S.disk = null; }
     }
     S.phase = "ready";
+    if (S.session.unlocked) setTimeout(noticeFailed, 400);
   } catch (e) {
     S.phase = "fatal"; S.fatal = friendly(e);
   }
@@ -218,8 +220,10 @@ A.boot = async () => {
     if (S.session.unlocked) { if (d && d.snapshot) setDisk(d.snapshot); return; }
     try { if (d && d.snapshot) setDisk(d.snapshot); else await loadSnapshot(); } catch (e) { return; }
     if (!S.disk || S.session.unlocked) return;
+    S.failedSince = (d && d.failedSince) || null;
+    const failed = !!(S.failedSince && Number(S.failedSince.count) > 0);
     A.enter();
-    ui.toast({ title: "Unlocked from the browser", description: d && d.via === "browser-touchid" ? "With Touch ID" : null, tone: "neutral", icon: "lock-open" });
+    if (!failed) ui.toast({ title: "Unlocked from the browser", description: d && d.via === "browser-touchid" ? "With Touch ID" : null, tone: "neutral", icon: "lock-open" });
   });
   api.on("bridge.pair", (d) => { const p = normPair(d); if (!p) return; S.pair = p; emit(); });
   api.on("bridge.pairDone", (d) => { if (d && d.id) endPair(String(d.id), d.status); });
@@ -259,28 +263,54 @@ A.createVault = async (o) => {
   return r;
 };
 
+// Wrong passwords wait longer the more there are (pm and the app share the
+// count): no wait for the first 3, then 30s, 1m, 5m, 15m, and 1h from the 8th.
 A.unlock = async (password) => {
   try {
-    await call("vault.unlock", { password });
+    const r = await call("vault.unlock", { password });
+    S.failedSince = (r && r.failedSince) || null;
     if (!S.disk) await loadSnapshot();
     return { ok: true };
   } catch (e) {
     const data = (e && e.data) || {};
-    if (e.code === "wrong_password") return { ok: false, error: "wrong", left: data.left };
-    if (e.code === "cooldown") return { ok: false, error: "cooldown", wait: data.wait || 30 };
-    if (e.code === "breach_lock") return { ok: false, error: "breach", message: friendly(e) };
+    const failures = Number(data.failures) || 0;
+    const wait = Math.max(0, Math.ceil(Number(data.wait) || 0));
+    if (e.code === "wrong_password") return { ok: false, error: "wrong", failures, wait };
+    if (e.code === "cooldown") return { ok: false, error: "cooldown", failures, wait: wait || 30 };
+    if (e.code === "recovery_required") return { ok: false, error: "recovery", failures, message: (e && e.message) || "" };
     return { ok: false, error: "other", message: friendly(e) };
   }
 };
 A.touchId = async () => {
-  try { await call("vault.unlockTouchID"); if (!S.disk) await loadSnapshot(); return { ok: true }; }
-  catch (e) { return { ok: false, code: e.code, message: friendly(e) }; }
+  try { const r = await call("vault.unlockTouchID"); S.failedSince = (r && r.failedSince) || null; if (!S.disk) await loadSnapshot(); return { ok: true }; }
+  catch (e) { return { ok: false, code: e.code, message: friendly(e), data: (e && e.data) || {} }; }
 };
+const SOURCE_NAMES = { cli: "the CLI", desktop: "this app", extension: "the browser extension", mcp: "an AI assistant", system: "APM" };
+export const sourceName = (s) => SOURCE_NAMES[s] || String(s || "");
+const andList = (xs) => (xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1]);
+export function dayTime(ts) {
+  const d = new Date(ts); const now = new Date();
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (ts >= day) return "today " + time;
+  if (ts >= day - 86400000) return "yesterday " + time;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + time;
+}
+// Shown once, right after an unlock that followed wrong passwords.
+function noticeFailed() {
+  const f = S.failedSince; S.failedSince = null;
+  const n = f ? Number(f.count) || 0 : 0;
+  if (!n) return;
+  const last = toMs(f.last);
+  const from = arr(f.sources).map(sourceName).filter(Boolean);
+  ui.toast({ title: n + " wrong password" + (n === 1 ? "" : "s") + " since your last unlock", description: last ? "Last: " + dayTime(last) + (from.length ? " from " + andList(from) : "") + "." : null, tone: "warning", duration: 10000, action: { label: "Review activity", onClick: () => ui.go({ view: "watchtower", tab: "activity" }) } });
+}
 A.enter = (opts) => {
   S.session = Object.assign(freshSession(), { unlocked: true, unlockedAt: Date.now(), lastActive: Date.now() });
   play("unlock");
   if (opts && opts.readonly) A.readonly(opts.readonly);
   emit();
+  noticeFailed();
 };
 A.lock = (reason) => {
   if (!S.session.unlocked && !S.disk) return;
@@ -491,6 +521,21 @@ A.backup = async () => {
   return r;
 };
 A.cleanupScan = () => run("cleanup.scan", {}, { quiet: true });
+
+// Watchtower and Activity. pm runs every check; the app only shows them.
+A.wtScan = (space) => run("watchtower.scan", { space: space || "" }, { quiet: true });
+A.wtDismiss = (id, reason, days) => run("watchtower.dismiss", { id, reason, days: days || 0 }, { quiet: true });
+A.wtRestore = (id) => run("watchtower.restore", { id }, { quiet: true });
+A.wtBreach = (enabled) => run("watchtower.breach", { enabled: !!enabled }, { quiet: true });
+A.wtBreachCheck = () => run("watchtower.breachCheck", {}, { quiet: true });
+// An older pm has no watchtower.markExposed; the item.meta flag does the same.
+A.markExposed = async (id, exposed) => {
+  const r = await run("watchtower.markExposed", { itemId: id, exposed: !!exposed }, { quiet: true });
+  return !r.ok && r.code === "unsupported" ? A.patchMeta(id, { exposed: !!exposed }) : r;
+};
+A.activityList = () => run("activity.list", { limit: 200, includeAcknowledged: true }, { quiet: true });
+A.activityAck = (id) => run("activity.ack", { id }, { quiet: true });
+A.activityAckAll = () => run("activity.ackAll", {}, { quiet: true });
 A.cleanupApply = (ids) => run("cleanup.apply", { ids });
 A.audit = (action, details) => { if (api && S.session.unlocked) api.call("audit.log", { action, details: details || "" }).then((r) => { if (r && r.snapshot) setDisk(r.snapshot); }).catch(() => {}); };
 A.destroy = async (confirm) => {

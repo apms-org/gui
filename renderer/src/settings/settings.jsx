@@ -17,14 +17,14 @@ const cx = U.cx;
 export const SECTIONS = [
   { group: "Vault", items: [
     { id: "general", label: "General", icon: "settings", keys: "name path version update behavior copy confirm density" },
-    { id: "security", label: "Security", icon: "shield", keys: "master password touch id clipboard profile argon2 cipher encryption policy" },
+    { id: "security", label: "Security", icon: "shield", keys: "master password touch id clipboard profile argon2 cipher encryption policy wrong attempts lockout require recovery" },
     { id: "recovery", label: "Recovery", icon: "life-buoy", keys: "email recovery key codes passkey quorum trustee shares forgot" },
     { id: "sessions", label: "Sessions", icon: "clock", keys: "auto lock autolock auto-lock inactivity idle sleep never timeout maximum unlock read-only ephemeral agent ci session revoke terminal" }
   ] },
   { group: "App", items: [
     { id: "appearance", label: "Appearance", icon: "palette", keys: "theme dark light custom colors nord dracula density website icons logos favicon cache" },
     { id: "spaces", label: "Spaces", icon: "layers", keys: "space work family rename delete color" },
-    { id: "alerts", label: "Alerts", icon: "bell", keys: "security alerts email anomaly level" }
+    { id: "alerts", label: "Alerts", icon: "bell", keys: "security alerts email anomaly unusual activity level" }
   ] },
   { group: "Connections", items: [
     { id: "sync", label: "Sync", icon: "cloud", keys: "cloud github google drive dropbox apmignore conflict diff" },

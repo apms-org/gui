@@ -4,7 +4,7 @@ import U from "../lib/util.js";
 import { useStore, A as act } from "../lib/store.js";
 import { getType, titleOf, primaryValue, passwordKey, activePolicy, byAi } from "../lib/types.js";
 import { ui, useUi, openUrl } from "../lib/ui.js";
-import { trustOf, LEVEL_TONE, LEVEL_LABEL } from "../lib/health.js";
+import { wt, useWt, findingsFor, trustFor, runFix, fixLabel, fixIcon, SEV_TONE, LEVEL_TONE, LEVEL_LABEL } from "../lib/watchtower.js";
 import { FieldView, FieldEdit, copied, parseOtpauth } from "./fields.jsx";
 import { SPACE_COLORS } from "./spaces.jsx";
 import { iconFor, useIcons } from "../lib/icons.js";
@@ -61,20 +61,21 @@ export function itemMenu(it, disk, extra) {
   return items;
 }
 
-export function Detail({ item: it, analysis }) {
+export function Detail({ item: it }) {
   const disk = useStore((s) => s.disk);
   const session = useStore((s) => s.session);
   const u = useUi();
+  const w = useWt();
   const [tab, setTab] = React.useState("item");
   useIcons();
   const editing = u.editing === it.id;
   const t = getType(it.type);
   React.useEffect(() => { setTab("item"); }, [it.id]);
   if (editing) return <EditItem it={it} />;
-  const issues = analysis.issues.filter((x) => x.item.id === it.id);
+  const issues = findingsFor(w, it.id);
   const tot = linkedTotp(disk, it);
   const login = linkedLogin(disk, it);
-  const trust = trustOf(it);
+  const trust = trustFor(w, it.id);
   const clip = disk.settings.clipboard;
   const ro = session.readonly;
   const fields = t.fields.filter((f) => f.key !== t.titleKey);
@@ -116,8 +117,9 @@ export function Detail({ item: it, analysis }) {
           </div>
           {tab === "item" && <>
             {issues.slice(0, 2).map((x) => (
-              <A.Callout key={x.id} tone={x.tone} title={x.title} action={passwordKey(it.type) && (x.kind === "weak" || x.kind === "reused" || x.kind === "old") ? <A.Button size="sm" onClick={() => ui.edit(it.id)} disabled={ro}>Change password</A.Button> : x.kind === "exposed" ? <A.Button size="sm" onClick={() => act.patchMeta(it.id, { exposed: false }, "Cleared exposed flag on " + titleOf(it))}>Clear flag</A.Button> : null}>{x.body}</A.Callout>
+              <A.Callout key={x.id} tone={SEV_TONE[x.severity]} title={x.title} action={x.fixes[0] ? <A.Button size="sm" icon={fixIcon(x.fixes[0])} onClick={() => runFix(x.fixes[0], x, it)} disabled={ro && !String(x.fixes[0]).startsWith("settings:") && x.fixes[0] !== "open_change_url"}>{fixLabel(x.fixes[0])}</A.Button> : null}>{x.body}</A.Callout>
             ))}
+            {issues.length > 2 && <A.Button variant="link" className="detail-more-issues" onClick={() => ui.go({ view: "watchtower", tab: "findings", item: it.id })}>{U.n(issues.length - 2, "more finding")} in Watchtower</A.Button>}
             <A.FieldGroup>
               {fields.map((f) => <FieldView key={f.key} def={f} value={it.f[f.key]} item={it} clip={clip} onUseCode={(c) => act.useCode(it.id, c)} />)}
               {tot && !tot.own && <A.SecretField label="One-time code" icon="timer" totp={tot.f.secret.replace(/\s/g, "")} onCopy={(l, v) => copied(l, v, true, clip)} extra={<A.IconButton icon="link-2" label={"From Authenticator: " + titleOf(tot)} onClick={() => ui.select(tot.id)} />} />}
@@ -129,7 +131,7 @@ export function Detail({ item: it, analysis }) {
               {it.created > 0 && <span>Created {U.date(it.created)}</span>}
               {it.modified > 0 && <span>Modified {U.agoLong(it.modified)}</span>}
               {(it.versions || []).length > 0 ? <A.Button variant="link" onClick={() => setTab("versions")}><A.Icon name="history" size={12} />{U.n(it.versions.length, "earlier version")}</A.Button> : <span>No earlier versions</span>}
-              <span className={"trust-inline is-" + trust.level}>Trust {trust.score}</span>
+              {trust && <span className={"trust-inline is-" + trust.level}>Trust {trust.score}</span>}
             </div>
           </>}
           {tab === "versions" && <Versions it={it} />}
@@ -171,9 +173,9 @@ function Passkeys({ it }) {
 }
 
 function EditPasskeys({ it }) {
-  if (it.passkeys && it.passkeys.length) return <Passkeys it={it} />;
+  if (it.passkeys && it.passkeys.length) return <div id="fe-passkeys"><Passkeys it={it} /></div>;
   return (
-    <div className="section">
+    <div className="section" id="fe-passkeys">
       <div className="section-h"><span>Passkeys</span></div>
       <div className="fields-empty"><A.Icon name="fingerprint" size={14} />No passkeys yet. When a site offers to create one, the APM browser extension saves it to this login.</div>
     </div>
@@ -216,32 +218,33 @@ function Versions({ it }) {
 
 function Meta({ it, trust }) {
   const disk = useStore((s) => s.disk);
+  const since = it.rotated || it.created;
   const events = disk.history.filter((h) => h.identifier === titleOf(it) && h.category === it.type).slice(0, 12);
   return (
     <div className="stack-24">
-      <div className="section">
+      {trust && <div className="section">
         <div className="section-h"><span>Trust score</span><A.Badge tone={LEVEL_TONE[trust.level]} dot>{LEVEL_LABEL[trust.level]}</A.Badge></div>
         <div className="trustcard">
           <div className="trustnum"><b>{trust.score}</b><span>/ 100</span></div>
           <div className="trustbar"><A.Progress value={trust.score} tone={LEVEL_TONE[trust.level] === "accent" ? undefined : LEVEL_TONE[trust.level]} /></div>
           <div className="trustfactors">{trust.reasons.length ? trust.reasons.map((r) => <div key={r.text} className="trustf"><span>{r.text}</span><span className="mono-small">{r.delta}</span></div>) : <div className="trustf"><span>No risk factors</span><span className="mono-small">0</span></div>}</div>
         </div>
-      </div>
+      </div>}
       <div className="section">
         <div className="section-h"><span>Details</span></div>
         <A.FieldGroup>
           <A.SettingRow title="Privilege" description="How much damage this secret could do. Root and admin lower the trust score.">
             <A.Select size="sm" value={it.privilege || "none"} onChange={(v) => act.patchMeta(it.id, { privilege: v === "none" ? "" : v }, "Set privilege on " + titleOf(it))} options={[{ value: "none", label: "Normal" }, { value: "elevated", label: "Elevated" }, { value: "admin", label: "Admin" }, { value: "root", label: "Root" }, { value: "critical", label: "Critical" }]} />
           </A.SettingRow>
-          <A.SettingRow title="Exposed" description="Mark a secret you know leaked. It drops 45 trust points until you rotate it.">
-            <A.Switch checked={!!it.exposed} onChange={(v) => act.patchMeta(it.id, { exposed: v }, (v ? "Marked " : "Unmarked ") + titleOf(it) + " as exposed")} label="Exposed" />
+          <A.SettingRow title="Exposed" description="Mark a secret you know leaked. Watchtower flags it and its trust score drops until you change it.">
+            <A.Switch checked={!!it.exposed} onChange={(v) => wt.markExposed(it.id, v)} label="Exposed" />
           </A.SettingRow>
         </A.FieldGroup>
         <A.KeyValueList className="kv-card">
           <A.KeyValue label="Space"><SpaceChip name={it.space} disk={disk} /></A.KeyValue>
           <A.KeyValue label="Created">{it.created ? U.dateTime(it.created) : "Before APM tracked it"} by {byAi(it) ? "an AI client" : "you"}</A.KeyValue>
           <A.KeyValue label="Last used">{it.used ? U.agoLong(it.used) : "Never"} · {it.uses} time{it.uses === 1 ? "" : "s"}</A.KeyValue>
-          <A.KeyValue label="Last rotated">{it.rotated || it.created ? U.date(it.rotated || it.created) + " · " + trust.ageDays + " days" : "Unknown"}</A.KeyValue>
+          <A.KeyValue label="Last rotated">{since ? U.date(since) + " · " + U.n(Math.max(0, Math.floor((Date.now() - since) / 86400000)), "day") : "Unknown"}</A.KeyValue>
           <A.KeyValue label="Category key" mono>{it.type}|{titleOf(it)}|{it.space || "default"}</A.KeyValue>
           <A.KeyValue label="Item ID" mono>{it.id}</A.KeyValue>
         </A.KeyValueList>
@@ -262,7 +265,14 @@ function EditItem({ it }) {
   const [err, setErr] = React.useState(null);
   const dirty = JSON.stringify(f) !== JSON.stringify(it.f) || space !== (it.space || "");
   const [busy, setBusy] = React.useState(false);
+  // Watchtower opens the editor at the field a fix needs.
+  const [focus] = React.useState(() => ui.get().editFocus);
   useIcons();
+  React.useEffect(() => {
+    if (!focus || !focus.field) return;
+    const t = setTimeout(() => { const el = document.getElementById("fe-" + focus.field); if (!el) return; el.scrollIntoView({ block: "center" }); if (el.focus && /INPUT|TEXTAREA|SELECT/.test(el.tagName)) el.focus({ preventScroll: true }); }, 60);
+    return () => clearTimeout(t);
+  }, []);
   const save = async () => {
     if (busy || !dirty) return;
     const miss = t.fields.find((x) => x.required && (f[x.key] == null || f[x.key] === "" || (Array.isArray(f[x.key]) && !f[x.key].length)));
@@ -300,12 +310,12 @@ function EditItem({ it }) {
           <div className="hero">
             <A.ItemIcon name={f[t.titleKey] || t.label} size="lg" icon={it.type === "password" ? undefined : t.icon} src={iconFor(it)} />
             <div className="hero-text grow">
-              <input className="title-input" value={f[t.titleKey] || ""} onChange={(e) => setF({ ...f, [t.titleKey]: e.target.value })} placeholder={t.label + " name"} aria-label="Name" autoFocus />
+              <input className="title-input" value={f[t.titleKey] || ""} onChange={(e) => setF({ ...f, [t.titleKey]: e.target.value })} placeholder={t.label + " name"} aria-label="Name" autoFocus={!focus} />
               <div className="hero-badges"><A.Badge icon={t.icon}>{t.label}</A.Badge></div>
             </div>
           </div>
           <div className="edit-grid">
-            {t.fields.filter((x) => x.key !== t.titleKey).map((x) => <FieldEdit key={x.key} def={x} value={f[x.key]} onChange={(v) => setF({ ...f, [x.key]: v })} policy={activePolicy(disk)} />)}
+            {t.fields.filter((x) => x.key !== t.titleKey).map((x) => <FieldEdit key={x.key} def={x} value={f[x.key]} onChange={(v) => setF({ ...f, [x.key]: v })} policy={activePolicy(disk)} generate={!!(focus && focus.generate && focus.field === x.key)} />)}
             <A.Select label="Space" icon="layers" value={space} onChange={setSpace} options={[{ value: "", label: "Default" }].concat(disk.spaces.map((s) => ({ value: s.name, label: s.name })))} />
           </div>
           {it.type === "password" && <EditPasskeys it={it} />}

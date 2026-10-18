@@ -5,6 +5,7 @@ import { getType, titleOf, subOf, TYPES } from "../lib/types.js";
 import { ui, useUi } from "../lib/ui.js";
 import { Detail, itemMenu, SpaceChip } from "./detail.jsx";
 import { iconFor, useIcons } from "../lib/icons.js";
+import { useWt } from "../lib/watchtower.js";
 
 const cx = U.cx;
 const SORTS = [{ value: "recent", label: "Last used" }, { value: "name", label: "Name" }, { value: "added", label: "Date added" }, { value: "type", label: "Type" }];
@@ -45,7 +46,7 @@ function groupsOf(list, prefs, query, filter) {
   return out;
 }
 
-export function Vault({ analysis }) {
+export function Vault() {
   useIcons();
   const disk = useStore((s) => s.disk);
   const prefs = useStore((s) => s.prefs);
@@ -62,7 +63,13 @@ export function Vault({ analysis }) {
   const [ctx, setCtx] = React.useState(null);
   const anchor = React.useRef(null);
   const hover = React.useRef(null);
-  const warn = analysis.reusedIds;
+  const w = useWt();
+  // Worst open finding per item, for the list's warning triangle.
+  const alerts = React.useMemo(() => {
+    const m = {};
+    if (w.report) w.report.findings.forEach((f) => { if (!f.itemId || f.dismissed) return; if (f.severity === "critical") m[f.itemId] = "danger"; else if (!m[f.itemId] && (f.severity === "high" || f.severity === "medium")) m[f.itemId] = "warning"; });
+    return m;
+  }, [w.report]);
 
   React.useEffect(() => {
     const onKey = (e) => {
@@ -138,14 +145,13 @@ export function Vault({ analysis }) {
                 {g.rows.map((it, ix) => {
                   const sel = multi.includes(it.id);
                   const act2 = current && current.id === it.id && !multi.length;
-                  const issue = analysis.issues.find((x) => x.item.id === it.id);
                   return (
                     <div key={it.id} data-row={it.id} className={cx("rowwrap", sel && "is-multi")} style={{ animationDelay: Math.min(ix, 10) * 16 + "ms" }}
                       onMouseEnter={() => { hover.current = it.id; }} onMouseMove={() => { hover.current = it.id; }} onMouseLeave={() => { if (hover.current === it.id) hover.current = null; }}
                       onClickCapture={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) { e.stopPropagation(); e.preventDefault(); click(e, it); } }}
                       onContextMenu={(e) => { e.preventDefault(); if (!sel) { ui.setMulti([]); ui.select(it.id); } setCtx({ x: e.clientX, y: e.clientY, it }); }}
                       onDoubleClick={() => filter !== "trash" && !ro && ui.edit(it.id)}>
-                      <A.ItemRow title={titleOf(it)} subtitle={filter === "trash" ? "Deleted " + U.agoLong(it.deletedAt) : subOf(it)} mono={["ssh_key", "ssh_config", "apikey", "cloud", "k8s"].includes(it.type)} time={U.ago(filter === "trash" ? it.deletedAt : it.used)} favorite={it.fav} alert={issue ? (issue.tone === "danger" ? "danger" : "warning") : null} active={act2 || sel} icon={it.type === "password" ? undefined : getType(it.type).icon} src={iconFor(it)} onClick={(e) => click(e, it)} />
+                      <A.ItemRow title={titleOf(it)} subtitle={filter === "trash" ? "Deleted " + U.agoLong(it.deletedAt) : subOf(it)} mono={["ssh_key", "ssh_config", "apikey", "cloud", "k8s"].includes(it.type)} time={U.ago(filter === "trash" ? it.deletedAt : it.used)} favorite={it.fav} alert={alerts[it.id] || null} active={act2 || sel} icon={it.type === "password" ? undefined : getType(it.type).icon} src={iconFor(it)} onClick={(e) => click(e, it)} />
                     </div>
                   );
                 })}
@@ -155,7 +161,7 @@ export function Vault({ analysis }) {
         </div>
         {ctx && <ContextMenu x={ctx.x} y={ctx.y} onClose={() => setCtx(null)} items={filter === "trash" ? [{ label: "Restore", icon: "rotate-ccw", onSelect: async () => { const b = await act.restoreItems([ctx.it.id]); if (b.length) ui.toast({ title: "Restored " + titleOf(ctx.it) }); } }, { separator: true }, { label: "Delete permanently", icon: "trash-2", danger: true, onSelect: () => ui.open("delete", { ids: [ctx.it.id], trash: true }) }] : multi.length > 1 ? bulkMenu(multi) : itemMenu(ctx.it, disk)} />}
       </section>
-      {multi.length > 1 ? <Bulk ids={multi} disk={disk} /> : current ? (filter === "trash" ? <TrashDetail it={current} /> : <Detail item={current} analysis={analysis} />) : <section className="detail"><div className="detail-bar drag" /><A.EmptyState icon="mouse-pointer-click" title="Nothing selected">Choose an item on the left, or press <A.Kbd keys={["⌘", "K"]} /> to jump to one.</A.EmptyState></section>}
+      {multi.length > 1 ? <Bulk ids={multi} disk={disk} /> : current ? (filter === "trash" ? <TrashDetail it={current} /> : <Detail item={current} />) : <section className="detail"><div className="detail-bar drag" /><A.EmptyState icon="mouse-pointer-click" title="Nothing selected">Choose an item on the left, or press <A.Kbd keys={["⌘", "K"]} /> to jump to one.</A.EmptyState></section>}
     </>
   );
 }

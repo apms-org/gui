@@ -424,6 +424,10 @@ function useTouchInline() {
   return inline;
 }
 
+// 42s, then 4:59 from a minute up.
+const clock = (s) => (s < 60 ? s + "s" : Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"));
+const waitWords = (s) => (s < 60 ? U.n(s, "second") : s < 3600 ? U.n(Math.round(s / 60), "minute") : U.n(Math.round(s / 3600), "hour"));
+
 export function Lock({ onRecover, onWelcome, theme, onTheme }) {
   const session = useStore((s) => s.session);
   useStore((s) => s.status);
@@ -432,7 +436,12 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
   const [error, setError] = React.useState(null);
   const [shake, setShake] = React.useState(null);
   const [phase, setPhase] = React.useState("idle");
-  const [wait, setWait] = React.useState(0);
+  // Wrong passwords make the next try wait; until is when it can run again.
+  const [until, setUntil] = React.useState(0);
+  const [, tick] = React.useReducer((x) => x + 1, 0);
+  const [failures, setFailures] = React.useState(0);
+  const [needsRecovery, setNeedsRecovery] = React.useState(null);
+  const [said, setSaid] = React.useState("");
   const [menu, setMenu] = React.useState(false);
   const [ro, setRo] = React.useState(false);
   const inline = useTouchInline();
@@ -447,24 +456,47 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
   const touchHeld = React.useRef(false);
   const dark = theme === "dark";
   const P = info.profile || { kdf: "Argon2id", memory: 64, cipher: "AES-256-GCM", time: 3, threads: 2 };
+  const wait = until ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0;
   React.useEffect(() => {
-    if (wait <= 0) return;
-    const t = setTimeout(() => { setWait(wait - 1); if (wait - 1 <= 0) setError(null); }, 1000);
-    return () => clearTimeout(t);
-  }, [wait]);
+    if (!until) return;
+    const t = setInterval(() => {
+      if (Date.now() < until) { tick(); return; }
+      clearInterval(t); setUntil(0); setError(null); setSaid("You can try again now.");
+      setTimeout(() => { const el = document.querySelector(".lock-form input"); el && el.focus(); }, 30);
+    }, 250);
+    return () => clearInterval(t);
+  }, [until]);
+  const startWait = (secs) => { if (secs > 0) { setUntil(Date.now() + secs * 1000); setSaid("Wait " + waitWords(secs) + " before trying again."); } };
+  // A wait can already be running, from pm or before the app restarted.
+  React.useEffect(() => {
+    let live = true;
+    act.refreshStatus().then((st) => {
+      if (!live || !st) return;
+      if (Number(st.failures) > 0) setFailures(Number(st.failures));
+      const c = Math.ceil(Number(st.cooldown) || 0);
+      if (c > 0) { startWait(c); setError("Too many wrong passwords in a row."); }
+    });
+    return () => { live = false; };
+  }, []);
   const finish = () => { setPhase("open"); setTimeout(() => act.enter({ readonly: roRef.current ? 15 : 0 }), 640); };
+  const failed = (r) => {
+    if (r.failures) setFailures(r.failures);
+    if (r.error === "recovery") { setNeedsRecovery(r.message || "This vault asks for recovery after too many wrong passwords."); setError(null); return false; }
+    if (r.error === "cooldown") { startWait(r.wait); setError("Too many wrong passwords in a row."); return false; }
+    if (r.error === "wrong") { startWait(r.wait); setError("That password isn't right."); return !r.wait; }
+    setError(r.message || "Could not unlock the vault.");
+    return true;
+  };
   const submit = async (v) => {
-    if ((phase !== "idle" && phase !== "touch") || wait > 0) return;
+    if ((phase !== "idle" && phase !== "touch") || wait > 0 || needsRecovery) return;
     if (!v) { setShake(Date.now()); return; }
     if (phase === "touch" && touchApi()) touchApi().cancel();
-    setPhase("deriving"); setError(null);
+    setPhase("deriving"); setError(null); setSaid("");
     const r = await act.unlock(v);
     if (r.ok) { finish(); return; }
     setPhase("idle"); setPw(""); setShake(Date.now());
-    if (inline && r.error !== "cooldown" && r.error !== "breach" && !touchHeld.current) setTimeout(() => touch(true), 100);
-    if (r.error === "cooldown") { setWait(r.wait); setError("Too many attempts. Try again in " + r.wait + " seconds."); }
-    else if (r.error === "wrong") setError(r.left != null ? "Incorrect password. " + r.left + " attempt" + (r.left === 1 ? "" : "s") + " left before a wait." : "Incorrect password.");
-    else setError(r.message || "Could not unlock the vault.");
+    const again = failed(r);
+    if (inline && again && !touchHeld.current) setTimeout(() => touch(true), 100);
   };
   const touch = async (auto) => {
     if (!info.touchId || phaseRef.current !== "idle") return;
@@ -480,6 +512,7 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
       if (inline && Date.now() - started > 500) setTimeout(() => { if (document.hasFocus() && !touchHeld.current) touch(true); }, 100);
       return;
     }
+    if (r.code === "cooldown" || r.code === "recovery_required") { touchHeld.current = true; failed({ error: r.code === "cooldown" ? "cooldown" : "recovery", wait: Math.ceil(Number(r.data && r.data.wait) || 0), failures: Number(r.data && r.data.failures) || 0, message: r.message }); return; }
     if (inline) touchHeld.current = true;
     else if (auto && r.code === "touchid_failed") return;
     setError(r.code === "touchid_failed" ? (inline ? "Touch ID did not recognise that fingerprint. Enter your master password." : "Touch ID was cancelled. Enter your master password.") : r.message);
@@ -534,19 +567,22 @@ export function Lock({ onRecover, onWelcome, theme, onTheme }) {
         <h1 className="display auth-title">Unlock your vault</h1>
         <button type="button" className="lock-vault" title={info.path + " · click to open another vault"} onClick={onWelcome}><span className="dot" aria-hidden="true" /><span>{info.name}{info.count != null ? " · " + U.n(info.count, "item") : ""}</span></button>
         <div className="lock-form">
-          <A.PasswordInput value={pw} onChange={(v) => { setPw(v); if (error && !wait) setError(null); }} onSubmit={submit} error={error} busy={phase === "deriving" || phase === "open" || wait > 0} autoFocus shakeKey={shake} />
+          {needsRecovery ? <A.Callout tone="warning" title="Recovery needed" action={<A.Button size="sm" variant="primary" icon="life-buoy" onClick={onRecover}>Recover vault</A.Button>}>{needsRecovery}</A.Callout>
+            : <A.PasswordInput value={pw} onChange={(v) => { setPw(v); if (error && !wait) setError(null); }} onSubmit={submit} error={error} busy={phase === "deriving" || phase === "open"} disabled={wait > 0} autoFocus shakeKey={shake} />}
           {info.touchId && <>
             <div className="lock-or">or</div>
-            <A.Button ref={touchBtn} variant="secondary" size="lg" block icon="fingerprint" className={cx("lock-touch", phase === "touch" && "is-scanning", glyph && "has-glyph")} onClick={() => touch(false)} disabled={phase === "deriving" || phase === "open" || wait > 0}>{phase === "touch" ? "Touch the sensor" : "Unlock with Touch ID"}</A.Button>
+            <A.Button ref={touchBtn} variant="secondary" size="lg" block icon="fingerprint" className={cx("lock-touch", phase === "touch" && "is-scanning", glyph && "has-glyph")} onClick={() => touch(false)} disabled={phase === "deriving" || phase === "open" || wait > 0 || !!needsRecovery}>{phase === "touch" ? "Touch the sensor" : "Unlock with Touch ID"}</A.Button>
           </>}
         </div>
         {phase === "deriving" || phase === "open" ? (
           <div className="derive"><div className="derive-row"><b>Deriving key</b><span className="mono-small">{describe(P)}</span></div><div className="lock-bar"><i style={{ animationDuration: unlockMs + "ms" }} /></div></div>
         ) : wait > 0 ? (
-          <div className="lock-idle is-warning"><A.Icon name="clock" size={13} />Try again in {wait}s</div>
+          <div className="lock-idle is-warning"><A.Icon name="clock" size={13} /><span aria-hidden="true">Try again in {clock(wait)}</span></div>
         ) : (
           <div className="lock-idle"><A.Icon name="clock" size={13} />{ro ? "Will open read-only for 15 minutes" : idle}</div>
         )}
+        {failures >= 3 && !needsRecovery && phase !== "open" && <p className="lock-hint">Each wait gets longer after more wrong passwords. <A.Button variant="link" onClick={onRecover}>Forgot your password?</A.Button></p>}
+        <span className="apm-sr" role="status" aria-live="polite">{said}</span>
       </div>
     </AuthFrame>
   );

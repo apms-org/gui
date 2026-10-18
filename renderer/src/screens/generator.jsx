@@ -54,8 +54,8 @@ export function GeneratorPanel({ onUse, compact, useLabel = "Use password" }) {
   );
 }
 
-export function GeneratorPopover({ onUse }) {
-  const [open, setOpen] = React.useState(false);
+export function GeneratorPopover({ onUse, defaultOpen }) {
+  const [open, setOpen] = React.useState(!!defaultOpen);
   const [pos, setPos] = React.useState(null);
   const btn = React.useRef(null);
   const pop = React.useRef(null);

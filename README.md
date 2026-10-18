@@ -62,6 +62,13 @@ The packaged app runs only the `pm` bundled inside it (`Contents/Resources/bin/p
 
 Like VS Code's `code`, the packaged macOS app can install `pm` for the terminal: a symlink at `/usr/local/bin/pm` pointing at the bundled binary, so the terminal and the app always run the same version (`window.apm.app.installCli()`, `uninstallCli()`, `cliStatus()`). It asks for an administrator password when `/usr/local/bin` is not writable, only ever replaces a symlink (never a real file), only removes a link that points into the app, and reports another `pm` that would shadow it on your PATH.
 
+# AI Usage
+Developing APM and maintaining the entire suite is not easy to do all at once. Hence, we use **25%** AI generated code (mostly UI changes and non-critical & non-cryptographical changes). However, at APM, we have some policies for using AI; listed below.
+- AI is only used to develop small features and features that do not mess with vault
+- AI edits must be treated with care and reviewed carefully
+- AI edits must be tested thoroughly
+These policies make sure we use AI responsibly and make APM better for everyone! 
+
 ## Release
 
 Releases of the app (apms-org/gui) and the CLI (apms-org/apm) share a number. To ship X.Y.Z:

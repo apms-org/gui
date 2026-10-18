@@ -152,7 +152,7 @@ function FileView({ def, file, item }) {
   );
 }
 
-export function FieldEdit({ def, value, onChange, autoFocus, policy }) {
+export function FieldEdit({ def, value, onChange, autoFocus, policy, generate }) {
   const k = def.kind;
   const id = "fe-" + def.key;
   const req = def.required ? <span className="req" aria-hidden="true">*</span> : null;
@@ -163,7 +163,7 @@ export function FieldEdit({ def, value, onChange, autoFocus, policy }) {
     return (
       <div className="fe">
         <A.Input id={id} label={label} type="text" className="fe-pw" value={value || ""} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} spellCheck={false} autoComplete="off" icon={def.icon}
-          trailing={<GeneratorPopover onUse={(v) => onChange(v)} />} invalid={!!polErr} hint={polErr ? "Policy “" + policy.name + "” needs " + policy.min_length + "+ characters" + (policy.require_uppercase ? ", an uppercase letter" : "") + (policy.require_numbers ? ", a number" : "") + (policy.require_symbols ? ", a symbol" : "") + "." : def.hint} />
+          trailing={<GeneratorPopover defaultOpen={generate} onUse={(v) => onChange(v)} />} invalid={!!polErr} hint={polErr ? "Policy “" + policy.name + "” needs " + policy.min_length + "+ characters" + (policy.require_uppercase ? ", an uppercase letter" : "") + (policy.require_numbers ? ", a number" : "") + (policy.require_symbols ? ", a symbol" : "") + "." : def.hint} />
         {value ? <A.StrengthMeter score={s.score} bits={s.bits} detail={U.crackPhrase(s.bits)} /> : null}
       </div>
     );

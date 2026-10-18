@@ -10,10 +10,18 @@ import { Cli } from "../ui/kit.jsx";
 import { undoLast } from "./shell.jsx";
 
 const cx = U.cx;
+// Audit entries that show up in Watchtower's Activity: wrong passwords and
+// refused assistant requests (ANOMALY for older logs).
+const ACTIVITY_ACTION = /ANOMALY|UNLOCK_FAILED|MCP_AUTH_FAILED|MCP_ASSISTANT_BLOCKED|MCP_ASSISTANT_DENIED|MCP_SCOPE_DENIED/;
+const ALERT_ACTION = /FAILED|DENIED|BLOCKED|ANOMALY|DESTROYED/;
 const ACTION_TONE = { SAVE: "neutral", UNDO: "accent", CHECKOUT: "accent", SQUASH: "warning", INIT: "success" };
+// Wrong passwords are UNLOCK_FAILED and Watchtower writes WATCHTOWER_*,
+// ACTIVITY_ACKNOWLEDGED, BREACH_CHECK, ITEM_MARKED and TRUST_VIEWED. ANOMALY is
+// what older versions wrote for an odd-hour unlock; it stays so those match.
 const AUDIT_GROUPS = [
   { value: "all", label: "All" },
   { value: "access", label: "Unlocks", test: (a) => /UNLOCK|LOCK|ANOMALY|READONLY|SESSION|EPHEMERAL/.test(a) },
+  { value: "watchtower", label: "Watchtower", test: (a) => /WATCHTOWER|ACTIVITY|BREACH_CHECK|ITEM_MARKED|TRUST_VIEWED|ANOMALY/.test(a) },
   { value: "changes", label: "Changes", test: (a) => /SAVED|LGIT|PROFILE|SETTINGS|IMPORT|EXPORT|CLEANUP|PASSWORD|POLICY|INJECT/.test(a) },
   { value: "sync", label: "Sync", test: (a) => /CLOUD/.test(a) },
   { value: "ai", label: "AI", test: (a) => /MCP/.test(a) },
@@ -117,10 +125,10 @@ function Audit() {
       <div className="audit">
         {rows.length === 0 && <A.EmptyState icon="activity" title="No events match">Try another filter.</A.EmptyState>}
         {rows.slice(0, 200).map((e) => (
-          <div key={e.id} className={cx("audit-row", /FAILED|ANOMALY|DESTROYED|AUTH_FAILED/.test(e.action) && "is-alert")}>
+          <div key={e.id} className={cx("audit-row", ALERT_ACTION.test(e.action) && "is-alert")}>
             <span className="audit-time">{U.dateTime(e.ts)}</span>
             <span className="audit-action mono-small">{e.action}</span>
-            <span className="audit-details">{e.details || <span className="muted">No details</span>}</span>
+            <span className="audit-details">{e.details || <span className="muted">No details</span>}{ACTIVITY_ACTION.test(e.action) && <> <A.Button variant="link" onClick={() => ui.go({ view: "watchtower", tab: "activity" })}>Review in Activity</A.Button></>}</span>
             <span className="audit-who mono-small">{e.who}</span>
             <A.Tooltip label={e.verified ? "Signature verified" : "Signature does not match"}><A.Icon name={e.verified ? "check-check" : "triangle-alert"} size={13} className={e.verified ? "verified-ic" : "broken-ic"} /></A.Tooltip>
           </div>

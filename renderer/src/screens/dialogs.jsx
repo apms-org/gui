@@ -122,6 +122,7 @@ const SHORTCUTS = [
   ["Vault", [["⌘ K", "Search items, actions and settings"], ["⌘ F", "Search the list"], ["⌘ N", "New item"], ["⇧ ⌘ N", "New space"], ["⌘ G", "Password generator"], ["⌘ 1 to 9", "All, Logins, Authenticator, Tokens, API keys, SSH, Notes, Cloud, Banking"], ["⌥ ⌘ 1 to 5", "Vault, Authenticator, Watchtower, History, Settings"]]],
   ["Selected item", [["⇧ ⌘ C", "Copy the main secret"], ["⇧ ⌘ U", "Copy username"], ["⇧ ⌘ T", "Copy one-time code"], ["⇧ ⌘ O", "Open website"], ["⌘ E", "Edit"], ["⌘ S", "Save while editing"], ["⌘ ⌫", "Delete"], ["Space", "Quick look"]]],
   ["List", [["↑ ↓", "Previous or next item"], ["⇧ ↑ ↓", "Extend the selection"], ["⌘ click", "Add to selection"], ["⌘ A", "Select all"], ["Esc", "Clear selection or search"]]],
+  ["Watchtower", [["⌥ ⌘ 3", "Open Watchtower"], ["R", "Rescan"], ["Esc", "Close the details panel"]]],
   ["App", [["⌘ Z", "Undo last change"], ["⌘ L", "Lock vault"], ["⇧ ⌘ B", "Toggle sidebar"], ["⌘ ,", "Settings"], ["⌘ /", "This list"]]]
 ];
 function ShortcutsDialog({ onClose }) {

@@ -1,0 +1,103 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos
+            args: --all
+          - os: windows-latest
+            name: windows_amd64
+            args: --arch x64
+          - os: ubuntu-latest
+            name: linux_amd64
+            args: --arch x64
+
+    runs-on: ${{ matrix.os }}
+
+    # The app and pm ship from the same tag with the same number: a GUI tag
+    # vX.Y.Z builds pm from apms-org/apm at vX.Y.Z (scripts/build-backend.mjs
+    # --release, run by release.mjs). Push the CLI tag first.
+    env:
+      APM_CLI_REPO: https://github.com/apms-org/apm.git
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Check version matches tag
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "package.json is $version but the tag is $GITHUB_REF_NAME. Bump package.json before tagging." >&2
+            exit 1
+          fi
+
+      - name: Build app
+        run: node scripts/release.mjs ${{ matrix.args }}
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p out
+          for arch in arm64 amd64; do
+            ditto -c -k --sequesterRsrc --keepParent "release/$arch/APM.app" "out/APM-${GITHUB_REF_NAME}-darwin_${arch}.zip"
+          done
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Compress-Archive -Path "release/amd64/win-unpacked/*" -DestinationPath "out/APM-$env:GITHUB_REF_NAME-windows_amd64.zip"
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p out
+          tar -czf "out/APM-${GITHUB_REF_NAME}-linux_amd64.tar.gz" -C release/amd64 linux-unpacked
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: out/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

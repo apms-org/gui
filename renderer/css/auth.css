@@ -71,6 +71,8 @@
 .lock-bar i{display:block;height:100%;border-radius:inherit;background:var(--text);transform-origin:left;animation:auth-derive 900ms var(--ease-in-out) forwards}
 .lock-idle{display:inline-flex;align-items:center;gap:6px;min-height:16px;margin-top:28px;font-size:12px;line-height:16px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
 .lock-idle.is-warning{color:var(--warning)}
+.lock-hint{max-width:340px;margin:12px auto 0;font-size:12px;line-height:18px;color:var(--text-tertiary);text-wrap:pretty}
+.lock-form .apm-callout{text-align:left}
 .lock-body .derive{margin-top:24px}
 
 .derive{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;text-align:left;animation:auth-rise .22s var(--ease-out)}

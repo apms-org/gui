@@ -112,8 +112,8 @@ export function Alerts() {
     <>
       <Head title="Alerts" cli="pm auth alerts" description="Get an email when something important happens to this vault. Alerts are sent from this Mac, only while the app or pm is running." />
       <Card flush>
-        <A.SettingRow icon="bell" title="Security alerts" description={m.alerts ? "On. Adds 10 points to your vault health." : "Off. Turning this on adds 10 points to vault health."}><A.Switch label="Security alerts" checked={!!m.alerts} onChange={(v) => { if (v && !m.alertEmail && !email) { ui.toast({ title: "Add an email below first", tone: "neutral", icon: "mail" }); return; } act.meta(v && !m.alertEmail ? { alerts: true, alertEmail: email } : { alerts: v }); }} /></A.SettingRow>
-        <A.SettingRow icon="radar" title="Anomaly detection" description="Flags unlocks at unusual hours and bursts of failed attempts, even with email alerts off."><A.Switch label="Anomaly detection" checked={!!m.anomaly} onChange={(v) => act.meta({ anomaly: v })} /></A.SettingRow>
+        <A.SettingRow icon="bell" title="Security alerts" description={m.alerts ? "On. Watchtower counts this toward your vault health." : "Off. Watchtower suggests turning this on."}><A.Switch label="Security alerts" checked={!!m.alerts} onChange={(v) => { if (v && !m.alertEmail && !email) { ui.toast({ title: "Add an email below first", tone: "neutral", icon: "mail" }); return; } act.meta(v && !m.alertEmail ? { alerts: true, alertEmail: email } : { alerts: v }); }} /></A.SettingRow>
+        <A.SettingRow icon="radar" title="Unusual activity" description={<>Failed unlocks, new devices, unlocks at unusual hours, many secrets shown at once, spikes in AI agent access and signs of tampering are always recorded in Activity. With this on, serious ones also raise a security alert when alerts are on. <A.Button variant="link" onClick={() => ui.go({ view: "watchtower", tab: "activity" })}>Open Activity</A.Button></>}><A.Switch label="Unusual activity" checked={!!m.anomaly} onChange={(v) => act.meta({ anomaly: v })} /></A.SettingRow>
       </Card>
       <Card title="Where alerts go" description="Only the last four characters of this address are stored in logs."
         footer={<A.Button size="sm" variant="primary" disabled={!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email === m.alertEmail} onClick={async () => { const r = await act.meta({ alertEmail: email }); if (r.ok) ui.toast({ title: "Alerts will go to " + email }); }}>Save</A.Button>}>
@@ -121,7 +121,7 @@ export function Alerts() {
       </Card>
       <Card title="What to send" cli={"pm auth level " + lvl}>
         <div className="levels">
-          {[[1, "Critical only", "Failed unlocks, anomalies, recovery and destroy."], [2, "Security changes", "Critical, plus password, profile, token and policy changes."], [3, "Everything", "Every unlock, export and sync. Noisy."]].map(([v, t, d]) => (
+          {[[1, "Critical only", "Failed unlocks, serious unusual activity, recovery and destroy."], [2, "Security changes", "Critical, plus password, profile, token and policy changes."], [3, "Everything", "Every unlock, export and sync. Noisy."]].map(([v, t, d]) => (
             <button key={v} type="button" className={cx("level", lvl === v && "is-on")} disabled={!m.alerts} onClick={() => act.meta({ securityLevel: v })} aria-pressed={lvl === v ? "true" : "false"}>
               <span className="level-top"><span className="level-n">Level {v}</span>{lvl === v && <A.Icon name="check" size={14} strokeWidth={2.5} />}</span>
               <b>{t}</b><span>{d}</span>

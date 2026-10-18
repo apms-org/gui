@@ -43,6 +43,7 @@ export function Security() {
           <A.Switch label="Touch ID" checked={!!(tid.configured || disk.auth.touchId)} disabled={!tid.available} onChange={touch} />
         </A.SettingRow>
       </Card>
+      {typeof m.lockoutAfter === "number" && <Lockout m={m} disk={disk} />}
       <Card flush cli="pm autolock">
         <A.SettingRow icon="timer" title="Auto-lock" description={lockSummary(st) + " Set it for the app, pm and the browser extension in Sessions."}>
           {!lockMinutes(st.inactivity) && !lockMinutes(st.sessionTimeout) && <A.Badge size="sm" tone="warning" icon="triangle-alert">{st.lockOnSleep ? "Only on sleep" : "Never locks"}</A.Badge>}
@@ -61,7 +62,7 @@ export function Security() {
             return <A.ChoiceTile variant="list" key={id} selected={m.profile === id} onClick={() => choose(id)} disabled={disk.readonly} title={p.name} badge={id === "hardened" ? <A.Badge size="sm" tone="accent">Recommended</A.Badge> : null} description={p.blurb} meta={<span className="mono-small">{describe(p)} · unlock {p.unlock}</span>} />;
           })}
           {isCustom(m) && <A.ChoiceTile variant="list" selected onClick={() => ui.open("profile-custom")} title={P.name} badge={<A.Badge size="sm">Custom</A.Badge>} description="Your own parameters." meta={<span className="mono-small">{describe(P)} · unlock {fmtSec(estimate(P))}</span>} />}
-          {m.profile === "legacy" && <A.ChoiceTile variant="list" selected title="Legacy" badge={<A.Badge size="sm" tone="danger">Costs 20 health</A.Badge>} description={PROFILES.legacy.blurb} meta={<span className="mono-small">{describe(PROFILES.legacy)}</span>} />}
+          {m.profile === "legacy" && <A.ChoiceTile variant="list" selected title="Legacy" badge={<A.Badge size="sm" tone="danger">Lowers Watchtower score</A.Badge>} description={PROFILES.legacy.blurb} meta={<span className="mono-small">{describe(PROFILES.legacy)}</span>} />}
         </div>
       </Card>
       <Card title="Cipher" cli="pm cinfo" description="Both are authenticated. Pick XChaCha20 if you move the vault between very different machines."
@@ -77,6 +78,29 @@ export function Security() {
       </Card>
       <Policies />
     </>
+  );
+}
+
+// Opt-in: after N wrong master passwords in a row the vault opens only with
+// recovery. Off, wrong passwords only make the next try wait. Only the
+// recovery key (with its email) or trustee shares open the vault then, so
+// pm and the engine refuse it without one; recovery codes and a passkey are
+// extra checks, not a way in.
+function Lockout({ m, disk }) {
+  const r = disk.recovery;
+  const ready = !!(r.key && (r.email || r.quorum));
+  const n = Number(m.lockoutAfter) || 0;
+  const set = (v) => {
+    const next = Number(v) || 0;
+    if (!next) { act.meta({ lockoutAfter: 0 }); return; }
+    ui.open("confirm", { title: "Require recovery after " + next + " wrong passwords?", description: "After " + next + " wrong master passwords in a row, from pm or this app, the vault opens only with your recovery key or trustees. Waits between tries still apply before that.", icon: "life-buoy", tone: "warning", confirm: "Turn on", onConfirm: () => act.meta({ lockoutAfter: next }) });
+  };
+  return (
+    <Card flush>
+      <A.SettingRow icon="life-buoy" title="Require recovery after wrong passwords" htmlFor="lockout" description={!ready && !n ? "Set up a recovery key or trustee shares first. Until then, wrong passwords only make you wait." : n && !ready ? "On, but there is no recovery key or trustee shares, so nothing could open the vault after " + n + " wrong passwords. Turn it off." : n ? "On. After " + n + " wrong passwords in a row, the vault opens only with recovery." : "Off. Wrong passwords only make the next try wait, up to an hour."}>
+        <A.Select id="lockout" size="sm" value={String(n)} disabled={disk.readonly || (!ready && !n)} onChange={set} options={[{ value: "0", label: "Off" }, { value: "5", label: "After 5" }, { value: "10", label: "After 10" }, { value: "20", label: "After 20" }].concat(n && ![5, 10, 20].includes(n) ? [{ value: String(n), label: "After " + n }] : [])} />
+      </A.SettingRow>
+    </Card>
   );
 }
 

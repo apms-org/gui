@@ -3,7 +3,7 @@ import U from "../lib/util.js";
 import { useStore, A as act, store, NEWER_VAULT } from "../lib/store.js";
 import { getType, titleOf, subOf, TYPES, primaryValue } from "../lib/types.js";
 import { ui, useUi, openUrl } from "../lib/ui.js";
-import { analyze } from "../lib/health.js";
+import { wt, useWt, attention } from "../lib/watchtower.js";
 import { Vault, TypeNav, visibleItems } from "./vault.jsx";
 import { SpaceSwitcher } from "./spaces.jsx";
 import { DialogHost } from "./dialogs.jsx";
@@ -19,7 +19,7 @@ const cx = U.cx;
 
 function Traffic() { return <div className="traffic" aria-hidden="true"><i /><i /><i /></div>; }
 
-function Sidebar({ analysis, theme, onTheme }) {
+function Sidebar({ theme, onTheme }) {
   const disk = useStore((s) => s.disk);
   const prefs = useStore((s) => s.prefs);
   const session = useStore((s) => s.session);
@@ -30,6 +30,7 @@ function Sidebar({ analysis, theme, onTheme }) {
   const within = (i) => space === "all" || (i.space || "") === space;
   const pick = (filter) => { ui.go({ view: "vault", filter }); ui.query(""); };
   const pendingAi = disk.mcp.tx.filter((t) => t.status === "pending").length;
+  const watch = attention(useWt());
   const sync = disk.sync.providers.filter((p) => p.connected);
   const syncing = useStore((s) => !!s.busy.sync);
   const [, tick] = React.useReducer((x) => x + 1, 0);
@@ -49,7 +50,7 @@ function Sidebar({ analysis, theme, onTheme }) {
           <A.NavItem icon="layers" label="All items" count={disk.items.filter(within).length} active={r.view === "vault" && r.filter === "all"} onClick={() => pick("all")} />
           <A.NavItem icon="star" label="Favorites" count={disk.items.filter((i) => i.fav && within(i)).length} active={r.view === "vault" && r.filter === "fav"} onClick={() => pick("fav")} />
           <A.NavItem icon="timer" label="Authenticator" count={disk.items.filter((i) => (i.type === "totp" || (i.type === "password" && i.f.totp)) && within(i)).length} active={r.view === "authenticator"} onClick={() => ui.go({ view: "authenticator" })} />
-          <A.NavItem icon="radar" label="Watchtower" badge={analysis.issues.length ? { tone: analysis.issues.some((x) => x.tone === "danger") ? "danger" : "warning", text: String(analysis.issues.length) } : null} count={analysis.issues.length ? null : 0} active={r.view === "watchtower"} onClick={() => ui.go({ view: "watchtower" })} />
+          <A.NavItem icon="radar" label="Watchtower" badge={watch.count ? { tone: watch.critical ? "danger" : "warning", text: String(watch.count) } : null} dot={watch.activity ? { tone: watch.activityCritical ? "danger" : "warning", label: U.n(watch.activity, "activity event") + " to review" } : null} count={watch.count || watch.activity ? null : 0} active={r.view === "watchtower"} onClick={() => ui.go({ view: "watchtower" })} />
           <A.NavItem icon="history" label="History" active={r.view === "history"} onClick={() => ui.go({ view: "history" })} />
         </nav>
         <TypeNav filter={r.view === "vault" ? r.filter : ""} disk={disk} space={space} onPick={pick} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
@@ -83,7 +84,9 @@ function CommandHost({ disk, onTheme }) {
     { label: "All items", icon: "layers", onSelect: () => ui.go({ view: "vault", filter: "all" }) },
     { label: "Favorites", icon: "star", onSelect: () => ui.go({ view: "vault", filter: "fav" }) },
     { label: "Authenticator", icon: "timer", kbd: ["⌥", "⌘", "2"], onSelect: () => ui.go({ view: "authenticator" }) },
-    { label: "Watchtower", icon: "radar", kbd: ["⌥", "⌘", "3"], onSelect: () => ui.go({ view: "watchtower" }) },
+    { label: "Watchtower", icon: "radar", kbd: ["⌥", "⌘", "3"], onSelect: () => ui.go({ view: "watchtower", tab: "findings" }) },
+    { label: "Watchtower activity", icon: "activity", keywords: "unusual activity failed unlocks anomaly events", onSelect: () => ui.go({ view: "watchtower", tab: "activity" }) },
+    { label: "Trust scores", icon: "gauge", keywords: "watchtower trust risk", onSelect: () => ui.go({ view: "watchtower", tab: "trust" }) },
     { label: "History", icon: "history", kbd: ["⌥", "⌘", "4"], onSelect: () => ui.go({ view: "history" }) },
     { label: "Trash", icon: "trash-2", onSelect: () => ui.go({ view: "vault", filter: "trash" }) },
     ...TYPES.map((t) => ({ label: t.plural, icon: t.icon, keywords: "type " + t.label, onSelect: () => ui.go({ view: "vault", filter: "type:" + t.id }) }))
@@ -97,6 +100,8 @@ function CommandHost({ disk, onTheme }) {
     { label: "Import items", icon: "download", onSelect: () => ui.open("import") },
     { label: "Export items", icon: "file-down", onSelect: () => ui.open("export") },
     { label: "Undo last change", icon: "undo-2", kbd: ["⌘", "Z"], onSelect: undoLast },
+    { label: "Rescan with Watchtower", icon: "refresh-cw", keywords: "watchtower health check scan security", onSelect: () => { ui.go({ view: "watchtower" }); wt.rescan(); } },
+    { label: "Check passwords against breaches", icon: "shield-alert", keywords: "breach pwned hibp leaked watchtower", onSelect: () => ui.go({ view: "watchtower", tab: "setup" }) },
     { label: "Switch theme", icon: "palette", onSelect: onTheme },
     { label: "Keyboard shortcuts", icon: "keyboard", kbd: ["⌘", "/"], onSelect: () => ui.open("shortcuts") },
     { label: "Lock vault", icon: "lock", kbd: ["⌘", "L"], onSelect: () => act.lock("manual") }
@@ -235,7 +240,11 @@ export function Shell({ theme, onTheme }) {
   const prefs = useStore((s) => s.prefs);
   const session = useStore((s) => s.session);
   const u = useUi();
-  const analysis = React.useMemo(() => analyze(disk), [disk && disk.meta.modified, disk && disk.items.length, disk && disk.meta.alerts, disk && disk.meta.profile]);
+  const space = prefs.space ?? "all";
+  // pm runs Watchtower. Rescan when the vault or the space changes, and
+  // refresh Activity every minute for events from pm and the extension.
+  React.useEffect(() => { wt.scan(space); }, [disk && disk.meta.modified, disk && disk.items.length, disk && disk.meta.alerts, disk && disk.meta.profile, disk && disk.meta.breachCheck, space]);
+  React.useEffect(() => { const t = setInterval(() => wt.activity(), 60000); return () => { clearInterval(t); wt.reset(); }; }, []);
 
   React.useEffect(() => {
     const onKey = (e) => {
@@ -290,11 +299,11 @@ export function Shell({ theme, onTheme }) {
   const view = u.route.view;
   return (
     <div className={cx("shell", !prefs.sidebar && "no-side")}>
-      {prefs.sidebar ? <Sidebar analysis={analysis} theme={theme} onTheme={onTheme} /> : <div className="side-collapsed drag"><div className="nodrag"><A.IconButton icon="panel-left" label="Show sidebar" kbd={["⇧", "⌘", "B"]} onClick={() => store.savePrefs({ sidebar: true })} /></div>{disk.newerFormat && <div className="nodrag side-collapsed-ro"><A.IconButton icon="eye" label={"Read-only. " + NEWER_VAULT} onClick={() => store.savePrefs({ sidebar: true })} /></div>}</div>}
+      {prefs.sidebar ? <Sidebar theme={theme} onTheme={onTheme} /> : <div className="side-collapsed drag"><div className="nodrag"><A.IconButton icon="panel-left" label="Show sidebar" kbd={["⇧", "⌘", "B"]} onClick={() => store.savePrefs({ sidebar: true })} /></div>{disk.newerFormat && <div className="nodrag side-collapsed-ro"><A.IconButton icon="eye" label={"Read-only. " + NEWER_VAULT} onClick={() => store.savePrefs({ sidebar: true })} /></div>}</div>}
       <div className="main" key={view}>
-        {view === "vault" && <Vault analysis={analysis} />}
+        {view === "vault" && <Vault />}
         {view === "authenticator" && <Authenticator />}
-        {view === "watchtower" && <Watchtower analysis={analysis} />}
+        {view === "watchtower" && <Watchtower />}
         {view === "history" && <History />}
         {view === "settings" && <Settings theme={theme} onTheme={onTheme} />}
       </div>

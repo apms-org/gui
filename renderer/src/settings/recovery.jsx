@@ -52,7 +52,7 @@ export function RecoverySettings() {
       </Card>
       <Card danger title="Remove all recovery data" description="Deletes every recovery method above. After this, only your master password opens the vault."
         cli="pm auth reset"
-        footer={<A.Button size="sm" variant="danger" disabled={!ready || disk.readonly} onClick={() => ui.open("confirm", { title: "Remove all recovery data?", description: "Your email, recovery key, one-time codes, passkey and trustee shares stop working immediately.", icon: "triangle-alert", tone: "danger", confirm: "Remove everything", word: "REMOVE", onConfirm: async () => { const res = await act.resetRecovery(); if (res.ok) ui.toast({ title: "Recovery data removed", tone: "neutral" }); } })}>Remove recovery data</A.Button>} />
+        footer={<A.Button size="sm" variant="danger" disabled={!ready || disk.readonly} onClick={() => ui.open("confirm", { title: "Remove all recovery data?", description: "Your email, recovery key, one-time codes, passkey and trustee shares stop working immediately." + (disk.meta.lockoutAfter ? " Require recovery after wrong passwords turns off too." : ""), icon: "triangle-alert", tone: "danger", confirm: "Remove everything", word: "REMOVE", onConfirm: async () => { const res = await act.resetRecovery(); if (res.ok) ui.toast({ title: "Recovery data removed", tone: "neutral" }); } })}>Remove recovery data</A.Button>} />
     </>
   );
 }

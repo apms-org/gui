@@ -26,7 +26,7 @@ export declare const IconButton: React.ForwardRefExoticComponent<IconButtonProps
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> { label?: string; hint?: React.ReactNode; hintTone?: 'warning' | 'danger'; icon?: IconName; trailing?: React.ReactNode; size?: 'sm' | 'md' | 'lg'; invalid?: boolean }
 export declare const Input: React.ForwardRefExoticComponent<InputProps & React.RefAttributes<HTMLInputElement>>;
 
-export interface PasswordInputProps { value?: string; defaultValue?: string; onChange?: (value: string, event: React.ChangeEvent<HTMLInputElement>) => void; onSubmit?: (value: string) => void; submitHref?: string; placeholder?: string; label?: string; invalid?: boolean; error?: string | null; hint?: string; busy?: boolean; autoFocus?: boolean; shakeKey?: unknown; id?: string; className?: string; style?: React.CSSProperties }
+export interface PasswordInputProps { value?: string; defaultValue?: string; onChange?: (value: string, event: React.ChangeEvent<HTMLInputElement>) => void; onSubmit?: (value: string) => void; submitHref?: string; placeholder?: string; label?: string; invalid?: boolean; error?: string | null; hint?: string; busy?: boolean; /** Locks the field and the arrow without a spinner, e.g. while a wait after wrong passwords runs. */ disabled?: boolean; autoFocus?: boolean; shakeKey?: unknown; id?: string; className?: string; style?: React.CSSProperties }
 export declare function PasswordInput(props: PasswordInputProps): React.ReactElement;
 
 export interface SearchFieldProps extends Omit<InputProps, 'onChange' | 'icon' | 'trailing'> { value?: string; defaultValue?: string; onChange?: (value: string) => void; shortcut?: string[] | null }
@@ -45,7 +45,7 @@ export declare function Badge(props: BadgeProps): React.ReactElement;
 export interface ItemIconProps { name?: string; letter?: string; icon?: IconName; src?: string; size?: 'sm' | 'md' | 'lg'; solid?: boolean; className?: string; style?: React.CSSProperties }
 export declare function ItemIcon(props: ItemIconProps): React.ReactElement;
 
-export interface NavItemProps { icon?: IconName; label: React.ReactNode; count?: React.ReactNode; badge?: { tone?: Tone; text: string } | null; kbd?: string | string[]; active?: boolean; href?: string; onClick?: () => void; className?: string }
+export interface NavItemProps { icon?: IconName; label: React.ReactNode; count?: React.ReactNode; badge?: { tone?: Tone; text: string } | null; /** A small status dot before the count or badge, for something to look at that isn't counted, e.g. unreviewed activity. */ dot?: boolean | Tone | { tone?: Tone; label?: string } | null; kbd?: string | string[]; active?: boolean; href?: string; onClick?: () => void; className?: string }
 export declare function NavItem(props: NavItemProps): React.ReactElement;
 
 export interface ItemRowProps { title: string; subtitle?: string; letter?: string; icon?: IconName; src?: string; time?: string; favorite?: boolean; alert?: 'warning' | 'danger'; mono?: boolean; active?: boolean; solid?: boolean; onClick?: () => void; href?: string; className?: string }
@@ -63,7 +63,7 @@ export declare function TotpCode(props: TotpCodeProps): React.ReactElement;
 export interface StrengthMeterProps { score: 0 | 1 | 2 | 3 | 4; bits?: number; label?: string; detail?: string; className?: string }
 export declare function StrengthMeter(props: StrengthMeterProps): React.ReactElement;
 
-export interface ToastProps { title: string; description?: string | null; tone?: 'success' | 'neutral' | 'danger'; icon?: IconName; countdown?: number; onDone?: () => void; action?: React.ReactNode; className?: string; style?: React.CSSProperties }
+export interface ToastProps { title: string; description?: string | null; tone?: 'success' | 'neutral' | 'warning' | 'danger'; icon?: IconName; countdown?: number; onDone?: () => void; action?: React.ReactNode; className?: string; style?: React.CSSProperties }
 export declare function Toast(props: ToastProps): React.ReactElement;
 
 export interface TooltipProps { label: React.ReactNode; kbd?: string | string[]; side?: 'top' | 'bottom' | 'left' | 'right'; delay?: number; children: React.ReactElement; className?: string }
@@ -156,7 +156,7 @@ export declare function KeyValue(props: KeyValueProps): React.ReactElement;
 export interface StatusProps { tone?: Tone; pulse?: boolean; children?: React.ReactNode; className?: string }
 export declare function Status(props: StatusProps): React.ReactElement;
 
-export interface ChipProps { selected?: boolean; icon?: IconName; disabled?: boolean; onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void; title?: string; children?: React.ReactNode; className?: string }
+export interface ChipProps { selected?: boolean; icon?: IconName; /** Shown after the label in tabular numerals, e.g. a filter's match count. */ count?: React.ReactNode; disabled?: boolean; onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void; title?: string; children?: React.ReactNode; className?: string }
 export declare function Chip(props: ChipProps): React.ReactElement;
 
 export interface CodeBlockProps { children: string; label?: React.ReactNode; copy?: string | boolean; wrap?: boolean; maxHeight?: number | string; className?: string }
@@ -177,11 +177,35 @@ export interface ApprovalRow { label: React.ReactNode; /** Leave out for a full-
 export interface ApprovalSheetProps { title: React.ReactNode; subtitle?: React.ReactNode; meta?: React.ReactNode | React.ReactNode[]; item?: ApprovalItem; rows?: ApprovalRow[]; touch?: React.ReactNode; caption?: React.ReactNode; captionTone?: 'neutral' | 'ok' | 'err'; approveLabel?: string; approveTone?: 'primary' | 'danger'; approveKbd?: string | string[]; approveDisabled?: boolean; approveHint?: React.ReactNode; rejectLabel?: string; rejectKbd?: string | string[] | null; onApprove?: () => void; onReject?: () => void; onClose?: () => void; busy?: boolean; leaving?: boolean; className?: string }
 export declare function ApprovalSheet(props: ApprovalSheetProps): React.ReactElement;
 
+export type SeverityLevel = 'critical' | 'high' | 'medium' | 'low';
+export interface SeverityProps { level?: SeverityLevel; icon?: IconName; size?: 'sm' | 'md'; /** Icon and word without the pill, for a column inside a row. */ plain?: boolean; /** The problem, e.g. "Reused password". Leave out to show the level's name. */ children?: React.ReactNode; className?: string }
+export declare function Severity(props: SeverityProps): React.ReactElement;
+
+export interface SparklineProps { values: number[]; min?: number; max?: number; width?: number; height?: number; stroke?: number; tone?: Tone; /** Read aloud, e.g. "Score went from 62 to 81 in 30 days". Without it the line is decorative. */ label?: string; className?: string }
+export declare function Sparkline(props: SparklineProps): React.ReactElement | null;
+
+export interface FindingIssue { key?: string; label: React.ReactNode; severity: SeverityLevel }
+export interface FindingRowProps { title: string; subtitle?: React.ReactNode; name?: string; letter?: string; icon?: IconName; src?: string; solid?: boolean; issues?: FindingIssue[]; /** Score points regained by fixing every issue. */ impact?: number; dismissed?: boolean; active?: boolean; onClick?: () => void; className?: string }
+export declare function FindingRow(props: FindingRowProps): React.ReactElement;
+
+export interface FixStepProps { /** The step's number, 1 for the fix worth the most. */ n?: number; title: React.ReactNode; /** Score points regained by this fix. */ impact?: number; /** One sentence on why the fix matters. */ why?: React.ReactNode; /** Fills the number with `primary`. Give it to step 1 only. */ primary?: boolean; actions?: React.ReactNode; /** Usually a `ProblemList` of the problems this fix clears. */ children?: React.ReactNode; className?: string }
+export declare function FixStep(props: FixStepProps): React.ReactElement;
+export interface ProblemListProps { label?: string; children?: React.ReactNode; className?: string }
+export declare function ProblemList(props: ProblemListProps): React.ReactElement;
+export interface ProblemRowProps { severity?: SeverityLevel; title: React.ReactNode; detail?: React.ReactNode; /** Items for the row's ⋯ menu, e.g. Dismiss or Restore. */ menu?: MenuEntry[]; /** Names the ⋯ button. Defaults to "More for <title>". */ menuLabel?: string; dismissed?: boolean; /** Shown under the row, e.g. a form to dismiss it. */ children?: React.ReactNode; className?: string }
+export declare function ProblemRow(props: ProblemRowProps): React.ReactElement;
+
+export interface EventRowProps { severity?: SeverityLevel; icon?: IconName; title: React.ReactNode; body?: React.ReactNode; time?: string; source?: string; acknowledged?: boolean; action?: React.ReactNode; className?: string }
+export declare function EventRow(props: EventRowProps): React.ReactElement;
+
+export interface DrawerProps { open?: boolean; onClose?: () => void; title?: React.ReactNode; description?: React.ReactNode; icon?: IconName; tone?: Tone; /** The subject's logo, shown in an `ItemIcon` tile like its row. */ src?: string; /** Names the `ItemIcon` tile for its monogram. Defaults to the title. */ name?: string; /** Icon buttons in the head, before Close. */ actions?: React.ReactNode; /** A line under the title, on the left, e.g. "5 problems, 3 fixes". */ meta?: React.ReactNode; /** The same line, on the right. */ metaEnd?: React.ReactNode; width?: number; footer?: React.ReactNode; footerStart?: React.ReactNode; children?: React.ReactNode; layer?: 'portal' | 'contained' | 'none'; className?: string; bodyClassName?: string; autoFocus?: boolean }
+export declare function Drawer(props: DrawerProps): React.ReactElement | null;
+
 export declare function totp(secret: string, period?: number, digits?: number, at?: number): Promise<string>;
 export declare function copyText(text: string): Promise<void>;
 
 declare global {
   interface Window {
-    APM: { Icon: typeof Icon; Mark: typeof Mark; Spinner: typeof Spinner; Kbd: typeof Kbd; Command: typeof Command; Button: typeof Button; IconButton: typeof IconButton; Tooltip: typeof Tooltip; Input: typeof Input; PasswordInput: typeof PasswordInput; SearchField: typeof SearchField; Select: typeof Select; Textarea: typeof Textarea; Checkbox: typeof Checkbox; Switch: typeof Switch; SegmentedControl: typeof SegmentedControl; Tabs: typeof Tabs; Slider: typeof Slider; Badge: typeof Badge; ItemIcon: typeof ItemIcon; Avatar: typeof Avatar; NavItem: typeof NavItem; ItemRow: typeof ItemRow; FieldGroup: typeof FieldGroup; SecretField: typeof SecretField; SettingRow: typeof SettingRow; TotpCode: typeof TotpCode; StrengthMeter: typeof StrengthMeter; Progress: typeof Progress; Callout: typeof Callout; EmptyState: typeof EmptyState; Toast: typeof Toast; Dialog: typeof Dialog; Menu: typeof Menu; MenuList: typeof MenuList; CommandMenu: typeof CommandMenu; FileDrop: typeof FileDrop; Stepper: typeof Stepper; StatGroup: typeof StatGroup; CompareTable: typeof CompareTable; ChoiceGroup: typeof ChoiceGroup; ChoiceTile: typeof ChoiceTile; ReviewRow: typeof ReviewRow; Hint: typeof Hint; PageHeader: typeof PageHeader; Card: typeof Card; KeyValueList: typeof KeyValueList; KeyValue: typeof KeyValue; Status: typeof Status; Chip: typeof Chip; CodeBlock: typeof CodeBlock; StepList: typeof StepList; Meter: typeof Meter; TouchIdGlyph: typeof TouchIdGlyph; ApprovalSheet: typeof ApprovalSheet; icons: IconName[]; totp: typeof totp; copyText: typeof copyText };
+    APM: { Icon: typeof Icon; Mark: typeof Mark; Spinner: typeof Spinner; Kbd: typeof Kbd; Command: typeof Command; Button: typeof Button; IconButton: typeof IconButton; Tooltip: typeof Tooltip; Input: typeof Input; PasswordInput: typeof PasswordInput; SearchField: typeof SearchField; Select: typeof Select; Textarea: typeof Textarea; Checkbox: typeof Checkbox; Switch: typeof Switch; SegmentedControl: typeof SegmentedControl; Tabs: typeof Tabs; Slider: typeof Slider; Badge: typeof Badge; ItemIcon: typeof ItemIcon; Avatar: typeof Avatar; NavItem: typeof NavItem; ItemRow: typeof ItemRow; FieldGroup: typeof FieldGroup; SecretField: typeof SecretField; SettingRow: typeof SettingRow; TotpCode: typeof TotpCode; StrengthMeter: typeof StrengthMeter; Progress: typeof Progress; Callout: typeof Callout; EmptyState: typeof EmptyState; Toast: typeof Toast; Dialog: typeof Dialog; Menu: typeof Menu; MenuList: typeof MenuList; CommandMenu: typeof CommandMenu; FileDrop: typeof FileDrop; Stepper: typeof Stepper; StatGroup: typeof StatGroup; CompareTable: typeof CompareTable; ChoiceGroup: typeof ChoiceGroup; ChoiceTile: typeof ChoiceTile; ReviewRow: typeof ReviewRow; Hint: typeof Hint; PageHeader: typeof PageHeader; Card: typeof Card; KeyValueList: typeof KeyValueList; KeyValue: typeof KeyValue; Status: typeof Status; Chip: typeof Chip; CodeBlock: typeof CodeBlock; StepList: typeof StepList; Meter: typeof Meter; TouchIdGlyph: typeof TouchIdGlyph; ApprovalSheet: typeof ApprovalSheet; Drawer: typeof Drawer; Severity: typeof Severity; FindingRow: typeof FindingRow; FixStep: typeof FixStep; ProblemList: typeof ProblemList; ProblemRow: typeof ProblemRow; EventRow: typeof EventRow; Sparkline: typeof Sparkline; icons: IconName[]; totp: typeof totp; copyText: typeof copyText };
   }
 }
